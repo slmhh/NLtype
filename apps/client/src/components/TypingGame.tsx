@@ -7,9 +7,7 @@ import { TypingDisplay } from "./TypingDisplay";
 
 type GamePhase = "idle" | "countdown" | "playing" | "finished";
 
-// ── Text fetchers (prefer backend, fall back to local data) ──────────────
-
-async function fetchTextFromAPI(lang: "en" | "zh"): Promise<string | null> {
+async function fetchTextFromAPI(lang: string) {
   try {
     const ep = lang === "en" ? "/api/text/english" : "/api/text/chinese";
     const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
@@ -21,7 +19,7 @@ async function fetchTextFromAPI(lang: "en" | "zh"): Promise<string | null> {
   }
 }
 
-function generateEnglishTextLocal(): string {
+function generateEnglishTextLocal() {
   const targetLen = 200;
   const words: string[] = [];
   let len = 0;
@@ -33,8 +31,6 @@ function generateEnglishTextLocal(): string {
   return words.slice(0, -1).join(" ");
 }
 
-// ── Component ────────────────────────────────────────────────────────────
-
 export default function TypingGame() {
   const [language, setLanguage] = useState<"en" | "zh">("en");
   const [timeLimit, setTimeLimit] = useState(30);
@@ -42,7 +38,8 @@ export default function TypingGame() {
   const [gameText, setGameText] = useState(() => generateEnglishTextLocal());
   const [showResult, setShowResult] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const inputRef = useRef<HTMLDivElement>(null);
+  const [compCount, setCompCount] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onTimeUp = useCallback(() => {
     setPhase("finished");
@@ -50,9 +47,11 @@ export default function TypingGame() {
   }, []);
 
   const timer = useTimer(timeLimit, onTimeUp);
-
-  // Typing engine callback (not needed for timer-based mode)
-  const onFinish = useCallback(() => {}, []);
+  const onFinish = useCallback(() => {
+    setPhase("finished");
+    setShowResult(true);
+    timer.stop();
+  }, [timer]);
 
   const { state: typingState, reset: resetTyping } = useTypingEngine({
     text: gameText,
@@ -61,12 +60,10 @@ export default function TypingGame() {
     onFinish,
   });
 
-  // Prepare text and start the game
   const startGame = useCallback(async () => {
     setFetching(true);
-    const text = await fetchTextFromAPI(language).catch(() => null)
-      ?? (language === "en" ? generateEnglishTextLocal() : getChineseLocal());
-
+    const text = await fetchTextFromAPI(language).catch(() => null) ||
+      (language === "en" ? generateEnglishTextLocal() : getChineseLocal());
     setGameText(text);
     resetTyping(text);
     setShowResult(false);
@@ -82,10 +79,6 @@ export default function TypingGame() {
     timer.reset(timeLimit);
   }, [timeLimit, timer]);
 
-  // Focus input trap
-  useEffect(() => {
-    if (phase === "playing" && inputRef.current) inputRef.current.focus();
-  }, [phase]);
 
   const toggleLanguage = useCallback(() => {
     setLanguage((l) => (l === "en" ? "zh" : "en"));
@@ -98,12 +91,8 @@ export default function TypingGame() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-      {/* Header */}
-      <h1 className="text-2xl font-bold text-accent mb-8 tracking-widest">
-        TypeRush
-      </h1>
+      <h1 className="text-2xl font-bold text-accent mb-8 tracking-widest">NLType</h1>
 
-      {/* Controls */}
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={toggleLanguage}
@@ -136,11 +125,8 @@ export default function TypingGame() {
         )}
       </div>
 
-      {/* Game area */}
       <div className="w-full max-w-3xl">
-        {/* Timer */}
-        <div className="text-center mb-6">
-          {phase === "playing" && (
+        <div className="text-center mb-6">          {phase === "playing" && (
             <div
               className={`text-4xl font-bold font-mono ${
                 timer.timeLeft <= 5
@@ -153,19 +139,23 @@ export default function TypingGame() {
           )}
         </div>
 
-        {/* Text display area */}
+        {phase === "playing" && (
+          <textarea
+            className="absolute opacity-0 w-0 h-0 -z-10"
+            autoFocus
+
+          />
+        )}
         <div
-          ref={inputRef}
-          tabIndex={0}
           className="relative w-full bg-surface-alt rounded-xl p-3
                      border border-text-muted/10 focus:border-accent/50
                      focus:outline-none transition-colors cursor-text"
+          onClick={() => setTimeout(() => textareaRef.current?.focus(), 0)}
         >
-          {/* Idle state */}
           {phase === "idle" && (
             <div className="text-center text-text-muted py-12">
               <p className="text-lg mb-4">
-                {fetching ? "\u6B63\u5728\u52A0\u8F7D\u2026\u2026" : "\u51C6\u5907\u597D\u5F00\u59CB\u4E86\u5417\uFF1F"}
+                {fetching ? "Loading..." : "Ready to start?"}
               </p>
               <button
                 onClick={startGame}
@@ -174,15 +164,12 @@ export default function TypingGame() {
                            hover:bg-accent/80 transition-colors text-lg
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {fetching ? "\u52A0\u8F7D\u4E2D\u2026\u2026" : "\u5F00\u59CB\u6E38\u620F"}
+                {fetching ? "Loading..." : "Start"}
               </button>
-              <p className="text-sm mt-4 text-text-muted/60">
-                或按下任意键直接开始
-              </p>
+              <p className="text-sm mt-4 text-text-muted/60">Press any key to start</p>
             </div>
           )}
 
-          {/* Playing state — use the reusable TypingDisplay */}
           {phase === "playing" && (
             <TypingDisplay
               chars={typingState.chars}
@@ -192,41 +179,37 @@ export default function TypingGame() {
           )}
         </div>
 
-        {/* Live stats */}
         {phase === "playing" && (
           <div className="grid grid-cols-4 gap-4 mb-6">
             <StatCard label="WPM" value={String(typingState.wpm)} />
-            <StatCard label={"\u51C6\u786E\u7387"} value={`${typingState.accuracy}%`} />
-            <StatCard label={"\u8FDB\u5EA6"} value={getProgress(typingState)} />
+            <StatCard label="Acc" value={`${typingState.accuracy}%`} />
+            <StatCard label="Progress" value={getProgress(typingState)} />
             <StatCard label="CPM" value={String(typingState.cpm)} />
           </div>
         )}
       </div>
 
-      {/* Result screen */}
       {showResult && phase === "finished" && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-surface-alt rounded-2xl p-8 w-full max-w-md border border-text-muted/20">
-            <h2 className="text-2xl font-bold text-center text-accent mb-6">
-              {"\u6E38\u620F\u7ED3\u675F"}
-            </h2>
+            <h2 className="text-2xl font-bold text-center text-accent mb-6">Result</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
               <ResultStat label="WPM" value={String(typingState.wpm)} />
-              <ResultStat label={"\u51C6\u786E\u7387"} value={`${typingState.accuracy}%`} />
+              <ResultStat label="Accuracy" value={`${typingState.accuracy}%`} />
               <ResultStat label="CPM" value={String(typingState.cpm)} />
               <ResultStat label="Raw WPM" value={String(typingState.rawWpm)} />
             </div>
 
             <div className="flex gap-1 justify-center mb-6 text-xs text-text-muted">
               <span className="bg-accent-green/20 text-accent-green px-2 py-1 rounded">
-                {"\u2713"} {typingState.correctCount}
+                OK {typingState.correctCount}
               </span>
               <span className="bg-accent-red/20 text-accent-red px-2 py-1 rounded">
-                {"\u2717"} {typingState.incorrectCount}
+                ERR {typingState.incorrectCount}
               </span>
               <span className="bg-text-muted/10 px-2 py-1 rounded">
-                {"\u03A3"} {typingState.correctCount + typingState.incorrectCount}
+                TTL {typingState.correctCount + typingState.incorrectCount}
               </span>
             </div>
 
@@ -236,31 +219,31 @@ export default function TypingGame() {
                 className="flex-1 px-4 py-3 bg-accent text-surface font-semibold
                            rounded-lg hover:bg-accent/80 transition-colors"
               >
-                {"\u518D\u6765\u4E00\u5C40"}
+                Retry
               </button>
               <button
                 onClick={newGame}
                 className="flex-1 px-4 py-3 bg-surface border border-text-muted/20
                            text-text rounded-lg hover:border-text-muted/40 transition-colors"
               >
-                {"\u8FD4\u56DE"}
+                Back
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Hint */}
       {phase === "idle" && !fetching && (
-        <p className="text-xs text-text-muted/40 mt-8">
-          Enter — {"\u5F00\u59CB"} &nbsp;&middot;&nbsp; Tab — {"\u5207\u6362\u6A21\u5F0F"} &nbsp;&middot;&nbsp; Esc — {"\u9000\u51FA"}
-        </p>
+        <p className="text-xs text-text-muted/40 mt-8">Press any key to start</p>
+      )}
+      {phase === "playing" && (
+        <div className="fixed top-1 right-1 text-[10px] text-text-muted/30 pointer-events-none z-50">
+          comp:{compCount} lang:{language}
+        </div>
       )}
     </div>
   );
 }
-
-// ── Sub-components ───────────────────────────────────────────────────────
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -282,5 +265,5 @@ function ResultStat({ label, value }: { label: string; value: string }) {
 
 function getProgress(state: { currentIndex: number; chars: unknown[] }): string {
   if (state.chars.length === 0) return "0%";
-  return `${Math.round((state.currentIndex / state.chars.length) * 100)}%`;
+  return Math.round((state.currentIndex / state.chars.length) * 100) + "%";
 }

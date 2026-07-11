@@ -1,43 +1,48 @@
-﻿@echo off
-title TypeRush — 启动中...
+@echo off
+chcp 65001 >nul 2>nul
+title TypeRush
+
+set "ROOT=%~dp0"
 
 echo ==============================
-echo   TypeRush — 一键启动
+echo   TypeRush - Quick Start
+echo ==============================
+
+:: Kill any leftover processes
+taskkill /f /im server.exe 2>nul
+taskkill /f /im node.exe 2>nul
+
+:: Build Go backend if binary missing
+if not exist "%ROOT%apps\server\server.exe" (
+    echo [1/2] Building Go backend...
+    cd /d "%ROOT%apps\server"
+    set GOROOT=%ROOT%.tools\go
+    set GOCACHE=%ROOT%.tools\go-cache
+    "%ROOT%.tools\go\bin\go.exe" build -o server.exe ./cmd/server/
+    if errorlevel 1 (
+        echo Build failed.
+        pause
+        exit /b 1
+    )
+    echo   Build OK.
+)
+
+:: Start backend (direct exe, no cmd /c tricks)
+echo [1/2] Starting Go backend...
+start /min "TypeRush-Backend" "%ROOT%apps\server\server.exe"
+
+:: Start frontend
+echo [2/2] Starting frontend...
+cd /d "%ROOT%apps\client"
+timeout /t 3 /nobreak >nul
+
+echo.
+echo ==============================
+echo   Frontend: http://localhost:5173/
+echo   Backend:  http://localhost:3001/
+echo   Close this window to stop
 echo ==============================
 echo.
 
-:: 设置 Go 环境
-set GOROOT=D:\Code\NLtyping\.tools\go
-set GOCACHE=D:\Code\NLtyping\.tools\go-cache
-set PORT=3001
-
-:: 第一步：编译并启动 Go 后端
-echo [1/2] 编译 Go 后端...
-cd /d D:\Code\NLtyping\apps\server
-D:\Code\NLtyping\.tools\go\bin\go.exe build -o server.exe ./cmd/server/
-echo   编译完成，启动后端...
-
-:: 在新窗口中启动后端（最小化）
-start /min "" cmd /c "title TypeRush-Backend && echo Go Server starting... && D:\Code\NLtyping\apps\server\server.exe"
-
-:: 第二步：启动前端
-echo [2/2] 启动前端开发服务器...
-cd /d D:\Code\NLtyping\apps\client
-
-:: 给后端一点时间准备
-timeout /t 2 /nobreak > nul
-
-:: 前端在前台运行（关掉它也就关掉了整个开发环境）
-echo.
-echo ==============================
-echo   前端: http://localhost:5173/
-echo   后端: http://localhost:3001/
-echo   按 Ctrl+C 停止前端
-echo ==============================
-echo.
-
-npx.cmd vite --host
-
-:: 前端关闭后，清理后端进程
-echo 正在关闭后端...
+npx vite --host
 taskkill /f /im server.exe 2>nul

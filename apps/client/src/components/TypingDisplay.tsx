@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { type CharResult } from "../hooks/useTypingEngine";
 
 interface TypingDisplayProps {
@@ -44,14 +44,21 @@ function buildLines(
 
   // Compute "typed end" line index and position within that line
   let typedLineIdx = 0;
-  let typedPos = currentIndex;
+  let typedPos = 0;
+  let remaining = currentIndex;
   for (let i = 0; i < lines.length; i++) {
-    if (typedPos <= lines[i].end) {
+    const len = lines[i].end - lines[i].start;
+    if (remaining < len) {
       typedLineIdx = i;
-      typedPos = currentIndex - lines[i].start;
+      typedPos = remaining;
       break;
     }
-    typedPos -= lines[i].end - lines[i].start;
+    remaining -= len;
+  }
+  // Clamp typedPos to line length (handles isFinished edge case)
+  if (typedLineIdx < lines.length) {
+    typedPos = Math.min(isFinished ? lines[typedLineIdx].chars.length : typedPos, lines[typedLineIdx].chars.length - 1);
+    if (typedPos < 0) typedPos = 0;
   }
 
   return { lines, typedLineIdx, typedPos };
@@ -102,7 +109,7 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
             <div className="whitespace-pre-wrap break-all">
               {line.chars.map((c, i) => {
                 const globalI = lineStart + i;
-                if (globalI < currentIndex) {
+                if (globalI < currentIndex || isFinished) {
                   return (
                     <span key={i} className="text-text-muted/30">{c.char}</span>
                   );
@@ -120,9 +127,9 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
               })}
             </div>
 
-            {/* Typed text line — only for current line or completed lines */}
+            {/* Typed text line 鈥?only for current line or completed lines */}
             <div className="whitespace-pre-wrap break-all min-h-[1.2em]">
-              {Array.from({ length: localPos }, (_, i) => {
+              {Array.from({ length: isFinished ? line.chars.length : localPos }, (_, i) => {
                 const c = line.chars[i];
                 const match = c.typed === c.char;
                 return (
@@ -148,3 +155,4 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
     </div>
   );
 }
+

@@ -52,3 +52,6 @@ apps/server/dist/
 
 # ── Turbo ──
 .turbo/
+
+# ── Temp scripts ──
+scripts/
