@@ -71,6 +71,7 @@ export default function TypingGame() {
     setPhase("playing");
     timer.reset(timeLimit);
     timer.start();
+    setTimeout(() => textareaRef.current?.focus(), 50);
   }, [language, timeLimit, resetTyping, timer]);
 
   const newGame = useCallback(() => {
