@@ -1,4 +1,4 @@
-﻿# 多人打字游戏 — 项目计划书（v2 — Go 后端版）
+# 多人打字游戏 — 项目计划书（v2 — Go 后端版）
 
 > **目标**: 打造一款支持实时对战的多人打字游戏，兼具练习模式、竞技对战、数据追踪等核心体验。  
 > **参考产品**: Monkeytype, 10fastfingers, TypeRacer, NitroType, Keybr, Typing.com  
@@ -243,6 +243,79 @@ Room Hash (Redis):
 > **归档层**：PostgreSQL 定时快照表，用于历史查询和赛季归档。定时任务每小时将当前 Redis 排行榜快照写入 PG。
 
 ---
+
+
+
+## 六、项目目录结构设计
+
+### 6.1 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| 单一职责 | 每个目录/包只负责一个关注点 |
+| 可扩展 | 新增模式不需要改动已有结构 |
+| 横向分层 | 前端/后端/共享类型严格分离 |
+| 纵向聚合 | 同一特性的前后端代码在各自的 apps/ 子目录中独立演进 |
+
+### 6.2 完整目录结构
+
+```
+NLtyping/
+  apps/
+    client/              前端 (React + Vite)
+      src/
+        components/      UI 组件
+          TypingGame.tsx     主游戏组件
+          TypingDisplay.tsx  打字显示组件
+        hooks/           自定义 Hook
+          useTypingEngine.ts 打字引擎
+          useTimer.ts        倒计时器
+        stores/          Zustand 状态管理(规划)
+        services/        API 调用层(规划)
+        data/            本地降级数据
+    server/              后端 (Go)
+      cmd/server/main.go 入口
+      internal/
+        handler/         HTTP + WebSocket 处理器
+        middleware/      CORS/日志/认证
+        game/            游戏逻辑(规划)
+        db/              数据库(规划)
+        ws/              WebSocket 协议(规划)
+      data/              词库 JSON
+  packages/shared/       共享类型
+  docs/                  文档
+  start.bat              一键启动
+```
+
+### 6.3 可扩展性设计
+
+| 扩展场景 | 需要做什么 | 不需要改什么 |
+|----------|-----------|-------------|
+| 新增单人模式 | 新增组件 + 注册路由 | 打字引擎/后端 API/数据模型 |
+| 新增多人模式 | 新增组件 + handler + game 逻辑 | 现有单人模式不变 |
+| 新增文本来源 | data/ 添加 JSON, handler 添加路由 | 前端无需改动 |
+| 新增语言 | 词库 JSON + handler + UI 选项 | 引擎/状态/渲染不变 |
+| 扩展数据模型 | 共享类型加字段 + migration | 已有 handler 正常 |
+| 部署到 CDN | 前端 dist/ 传 CDN, 后端二进制 | 前端代码零改动 |
+
+### 6.4 前后端分离落地
+
+- apps/client 和 apps/server 各自独立构建部署
+- 前端通过 services/ 统一封装 API 调用
+- 后端 internal/ 子包隔离职责
+- 共享类型包纯类型声明, 无运行时依赖
+- data/ 仅开发降级, 生产从后端 API 获取
+
+### 6.5 渐进式演进
+
+| 阶段 | 新增内容 |
+|------|---------|
+| MVP | TypingGame + TypingDisplay + useTypingEngine + handler/text.go |
+| Phase 2 | stores + handler/room.go + internal/game/ + internal/ws/ |
+| Phase 3 | FriendList + handler/friend.go |
+
+---
+
 
 ## 六、前后端分离设计
 

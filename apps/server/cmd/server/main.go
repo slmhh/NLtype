@@ -25,7 +25,7 @@ func findDataDir() string {
 	}
 	for _, d := range candidates {
 		abs, _ := filepath.Abs(d)
-		if _, err := os.Stat(filepath.Join(abs, "words.json")); err == nil {
+		if _, err := os.Stat(filepath.Join(abs, "en", "words.json")); err == nil {
 			return abs
 		}
 	}
@@ -35,11 +35,11 @@ func findDataDir() string {
 func loadData() {
 	dir := findDataDir()
 	log.Printf("Loading data from: %s", dir)
-	data, err := os.ReadFile(filepath.Join(dir, "words.json"))
-	if err != nil { log.Fatalf("words.json: %v", err) }
+	data, err := os.ReadFile(filepath.Join(dir, "en", "words.json"))
+	if err != nil { log.Fatalf("en/words.json: %v", err) }
 	json.Unmarshal(data, &words)
-	data, err = os.ReadFile(filepath.Join(dir, "chinese.json"))
-	if err != nil { log.Fatalf("chinese.json: %v", err) }
+	data, err = os.ReadFile(filepath.Join(dir, "zh", "texts.json"))
+	if err != nil { log.Fatalf("zh/texts.json: %v", err) }
 	json.Unmarshal(data, &chinese)
 	log.Printf("Loaded %d English words, %d Chinese texts", len(words), len(chinese))
 }

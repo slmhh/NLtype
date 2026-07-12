@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
-import { englishWords } from "../data/words";
-import { getChineseText as getChineseLocal } from "../data/chinese";
+import { englishWords } from "../data/en";
+import { getChineseText as getChineseLocal } from "../data/zh";
 import { TypingDisplay } from "./TypingDisplay";
 
 type GamePhase = "idle" | "countdown" | "playing" | "finished";
