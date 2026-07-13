@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Modal, Statistic, Tag } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { TypingDisplay } from "./TypingDisplay";
-
-type GamePhase = "playing" | "finished";
 
 interface TypingGameProps {
   text: string;
   language: "en" | "zh";
   timeLimit: number;
-  onFinish?: (result: { wpm: number; accuracy: number; cpm: number; rawWpm: number }) => void;
   onRetry: () => void;
   onBack: () => void;
 }
 
-export default function TypingGame({ text, language, timeLimit, onFinish, onRetry, onBack }: TypingGameProps) {
-  const [phase, setPhase] = useState<GamePhase>("playing");
+export default function TypingGame({ text, language, timeLimit, onRetry, onBack }: TypingGameProps) {
+  const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasTimer = timeLimit > 0;
@@ -51,173 +49,153 @@ export default function TypingGame({ text, language, timeLimit, onFinish, onRetr
     inputRef.current?.focus();
   }, [text, timeLimit, resetTyping, hasTimer]);
 
-  useEffect(() => {
-    if (phase === "finished" && typingState.wpm > 0) {
-      onFinish?.({ wpm: typingState.wpm, accuracy: typingState.accuracy, cpm: typingState.cpm, rawWpm: typingState.rawWpm });
-    }
-  }, [phase, typingState, onFinish]);
-
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;
 
+  const progress = text.length > 0
+    ? Math.min(1, typingState.currentIndex / text.length)
+    : 0;
+
+  const timerLabel = hasTimer
+    ? `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${Math.floor(typingState.elapsedMs / 60000)}:${String(Math.floor((typingState.elapsedMs % 60000) / 1000)).padStart(2, "0")}`;
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-      {/* Top bar */}
-      <div className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-40">
-        <button
-          onClick={onBack}
-          className="text-text-muted/30 hover:text-text-muted/60 text-sm tracking-widest uppercase transition-colors duration-150"
-        >
-          ← back
-        </button>
-        <div className="flex items-center gap-3">
-          <span className="text-text-muted/20 text-[10px] tracking-widest uppercase">{language === "en" ? "en" : "zh"}</span>
-        </div>
-      </div>
+    <div className="flex flex-col items-center pt-8 px-4 pb-16 select-none">
+      {/* Hidden textarea for IME */}
+      <textarea ref={inputRef} className="absolute opacity-0 w-0 h-0 -z-10" autoFocus />
 
-      {/* Timer bar */}
-      {hasTimer && (
-        <div className="mb-6 text-center">
-          <div
-            className={`text-5xl font-bold font-mono tracking-wider transition-colors duration-300 ${
-              timer.timeLeft <= 5
-                ? "text-accent-red"
-                : "text-text/80"
-            }`}
-          >
-            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-          </div>
-          {/* Progress bar */}
-          <div className="w-32 h-[2px] mx-auto mt-2 bg-surface-ov/50 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent/60 rounded-full transition-all duration-1000 ease-linear"
-              style={{ width: `${(timer.timeLeft / timeLimit) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Back link */}
+      <button onClick={onBack} className="self-start mb-4 ml-4 text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--text-secondary)] transition-colors">
+        ← 返回
+      </button>
 
-      {/* Hidden textarea for IME/focus capture */}
-      <textarea
-        ref={inputRef}
-        className="absolute opacity-0 w-0 h-0 -z-10"
-        autoFocus
-      />
-
-      {/* Game Area */}
+      {/* Game card */}
       <div
-        className="relative w-full max-w-3xl bg-surface-alt/30 backdrop-blur-sm rounded-2xl p-5
-                   border border-text-muted/5 transition-colors duration-300
-                   focus-within:border-accent/20"
+        className="w-full max-w-[780px] bg-card rounded-2xl shadow-card overflow-hidden transition-colors"
         onClick={() => inputRef.current?.focus()}
       >
-        {phase === "playing" && (
-          <TypingDisplay
-            chars={typingState.chars}
-            currentIndex={typingState.currentIndex}
-            isFinished={typingState.isFinished}
-          />
+        {/* Timer area */}
+        {hasTimer && (
+          <div className="px-6 pt-5 pb-2 flex items-center justify-between">
+            <span className={`text-3xl font-bold font-mono tracking-wider transition-colors ${
+              timer.timeLeft <= 5 ? "text-[var(--accent-red)]" : "text-[var(--text-primary)]"
+            }`}>
+              {timerLabel}
+            </span>
+            {language === "en" ? (
+              <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">EN</span>
+            ) : (
+              <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">ZH</span>
+            )}
+          </div>
         )}
+
+        {/* Text display */}
+        <div className="px-6 py-4">
+          {phase === "playing" && (
+            <TypingDisplay
+              chars={typingState.chars}
+              currentIndex={typingState.currentIndex}
+              isFinished={typingState.isFinished}
+            />
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-[2px] bg-[var(--border)] mx-6 mb-5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300 ease-out"
+            style={{
+              width: `${progress * 100}%`,
+              backgroundColor: "var(--accent)",
+            }}
+          />
+        </div>
       </div>
 
       {/* Stats bar */}
       {phase === "playing" && (
-        <div className="flex items-center justify-center gap-6 mt-6">
-          <StatItem label="wpm" value={String(typingState.wpm)} />
-          <div className="w-px h-5 bg-text-muted/8" />
-          <StatItem label="acc" value={`${typingState.accuracy}%`} />
-          <div className="w-px h-5 bg-text-muted/8" />
-          <StatItem label="cpm" value={String(typingState.cpm)} />
-          <div className="w-px h-5 bg-text-muted/8" />
-          <StatItem label="raw" value={String(typingState.rawWpm)} />
-          <div className="w-px h-5 bg-text-muted/8" />
-          <StatItem label="progress" value={getProgress(typingState)} />
+        <div className="w-full max-w-[780px] grid grid-cols-4 gap-0 mt-5">
+          <StatBlock label="wpm" value={String(typingState.wpm)} />
+          <StatBlock label="acc" value={`${typingState.accuracy}%`} />
+          <StatBlock label="progress" value={`${Math.round(progress * 100)}%`} />
+          <StatBlock label="time" value={timerLabel} last />
         </div>
       )}
 
       {/* Result Modal */}
-      {showResult && phase === "finished" && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-surface/95 border border-text-muted/8 rounded-3xl p-12 w-full max-w-sm mx-4 shadow-2xl">
-            <p className="text-center text-text-muted/30 text-[10px] tracking-[0.3em] uppercase mb-6">
-              result
-            </p>
+      <Modal
+        visible={showResult}
+        onCancel={onBack}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        escToExit={false}
+        alignCenter
+        style={{ maxWidth: 380 }}
+        className="!rounded-3xl"
+      >
+        <div className="text-center pt-4 pb-2">
+          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-6">
+            result
+          </p>
 
-            {/* Big WPM */}
-            <div className="text-center mb-8">
-              <div className="text-7xl font-bold text-accent font-mono tracking-tight">
-                {typingState.wpm}
-              </div>
-              <div className="text-xs text-text-muted/40 tracking-[0.25em] uppercase mt-1">
-                wpm
-              </div>
-            </div>
+          <Statistic
+            title="wpm"
+            value={typingState.wpm}
+            countUp
+            countDuration={800}
+            countFrom={0}
+            className="[&_.arco-statistic-title]:!text-[var(--text-tertiary)] [&_.arco-statistic-title]:!tracking-[0.2em] [&_.arco-statistic-title]:!text-xs [&_.arco-statistic-value]:!text-7xl [&_.arco-statistic-value]:!font-bold [&_.arco-statistic-value]:!font-mono [&_.arco-statistic-value]:!text-[var(--accent)]"
+          />
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-3 gap-2 mb-6">
-              <MiniStat label="accuracy" value={`${typingState.accuracy}%`} />
-              <MiniStat label="cpm" value={String(typingState.cpm)} />
-              <MiniStat label="raw" value={String(typingState.rawWpm)} />
-            </div>
+          <div className="grid grid-cols-3 gap-2 my-6">
+            <MiniStat label="accuracy" value={`${typingState.accuracy}%`} />
+            <MiniStat label="cpm" value={String(typingState.cpm)} />
+            <MiniStat label="raw" value={String(typingState.rawWpm)} />
+          </div>
 
-            {/* Character counts */}
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <span className="flex items-center gap-1.5 text-accent-green/80 text-xs">
-                <span className="w-2 h-2 rounded-full bg-accent-green/40" />
-                {typingState.correctCount} correct
-              </span>
-              <span className="text-text-muted/20">·</span>
-              <span className="flex items-center gap-1.5 text-accent-red/80 text-xs">
-                <span className="w-2 h-2 rounded-full bg-accent-red/40" />
-                {typingState.incorrectCount} wrong
-              </span>
-            </div>
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <Tag color="green" bordered>✓ {typingState.correctCount}</Tag>
+            <span className="text-[var(--text-tertiary)]">·</span>
+            <Tag color="red" bordered>✗ {typingState.incorrectCount}</Tag>
+          </div>
 
-            {/* Buttons */}
-            <div className="flex gap-2.5">
-              <button
-                onClick={onRetry}
-                className="flex-1 px-4 py-3 bg-accent text-surface font-bold
-                           rounded-2xl hover:bg-accent/90 active:scale-[0.98]
-                           transition-all duration-150 text-sm tracking-wider uppercase"
-              >
-                retry
-              </button>
-              <button
-                onClick={onBack}
-                className="flex-1 px-4 py-3 border border-text-muted/10 text-text-muted
-                           rounded-2xl hover:border-text-muted/25 hover:text-text/80 active:scale-[0.98]
-                           transition-all duration-150 text-sm tracking-wider uppercase"
-              >
-                back
-              </button>
-            </div>
+          <div className="flex gap-2.5">
+            <Button type="primary" long onClick={onRetry}
+              className="!rounded-xl !text-sm !tracking-wider !uppercase !font-semibold !h-11">
+              再来一局
+            </Button>
+            <Button type="outline" long onClick={onBack}
+              className="!rounded-xl !text-sm !tracking-wider !uppercase !h-11">
+              返回大厅
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
+function StatBlock({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <div className="text-center">
-      <div className="text-lg font-semibold text-text/80 font-mono tabular-nums">{value}</div>
-      <div className="text-[10px] text-text-muted/35 tracking-[0.2em] uppercase mt-0.5">{label}</div>
+    <div className={`text-center ${last ? "" : "border-r border-[var(--border)]"}`}>
+      <div className="text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums">
+        {value}
+      </div>
+      <div className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] uppercase mt-0.5">
+        {label}
+      </div>
     </div>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-surface-ov/30 rounded-2xl py-3 text-center border border-text-muted/5">
-      <div className="text-xl font-bold text-text/70 font-mono tabular-nums">{value}</div>
-      <div className="text-[9px] text-text-muted/40 tracking-[0.2em] uppercase mt-0.5">{label}</div>
+    <div className="rounded-xl py-3 text-center border border-[var(--border)]">
+      <div className="text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums">{value}</div>
+      <div className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] uppercase mt-0.5">{label}</div>
     </div>
   );
-}
-
-function getProgress(state: { currentIndex: number; chars: unknown[] }): string {
-  if (state.chars.length === 0) return "0%";
-  return Math.round((state.currentIndex / state.chars.length) * 100) + "%";
 }

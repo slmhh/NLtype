@@ -5,26 +5,29 @@ export default {
     extend: {
       fontFamily: {
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        sans: ["system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
-        body: "#11111b",
-        surface: {
-          DEFAULT: "#1e1e2e",
-          alt: "#181825",
-          ov: "#313244",
-        },
+        body: "var(--bg-page)",
+        card: "var(--bg-card)",
+        "surface-alt": "var(--bg-alt)",
+        "surface-ov": "var(--bg-overlay)",
         text: {
-          DEFAULT: "#cdd6f4",
-          sub: "#a6adc8",
-          muted: "#6c7086",
+          DEFAULT: "var(--text-primary)",
+          sub: "var(--text-secondary)",
+          muted: "var(--text-tertiary)",
         },
         accent: {
-          DEFAULT: "#89b4fa",
-          green: "#a6e3a1",
-          red: "#f38ba8",
-          yellow: "#f9e2af",
-          mauve: "#cba6f7",
+          DEFAULT: "var(--accent)",
+          soft: "var(--accent-soft)",
+          green: "var(--accent-green)",
+          red: "var(--accent-red)",
+          yellow: "var(--accent-yellow)",
         },
+        border: "var(--border)",
+      },
+      boxShadow: {
+        card: "var(--shadow)",
       },
     },
   },

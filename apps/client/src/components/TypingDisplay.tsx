@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { type CharResult } from "../hooks/useTypingEngine";
 
 interface TypingDisplayProps {
@@ -7,37 +7,21 @@ interface TypingDisplayProps {
   isFinished: boolean;
 }
 
-/** Split chars into lines at word boundaries based on container width */
-function buildLines(
-  chars: CharResult[],
-  currentIndex: number,
-  isFinished: boolean,
-  maxWidth: number,
-  charWidth: number
-) {
+function buildLines(chars: CharResult[], currentIndex: number, isFinished: boolean, maxWidth: number, charWidth: number) {
   const charsPerLine = Math.max(20, Math.floor(maxWidth / charWidth));
   const lines: { start: number; end: number; chars: CharResult[] }[] = [];
   let start = 0;
 
   while (start < chars.length) {
     let end = Math.min(start + charsPerLine, chars.length);
-
     if (end < chars.length && chars[end]?.char !== " ") {
       let breakAt = start + charsPerLine;
       for (let i = end; i > start + 15; i--) {
-        if (chars[i]?.char === " ") {
-          breakAt = i;
-          break;
-        }
+        if (chars[i]?.char === " ") { breakAt = i; break; }
       }
       end = breakAt;
     }
-
-    lines.push({
-      start,
-      end: Math.min(end, chars.length),
-      chars: chars.slice(start, Math.min(end, chars.length)),
-    });
+    lines.push({ start, end: Math.min(end, chars.length), chars: chars.slice(start, Math.min(end, chars.length)) });
     start = end;
   }
 
@@ -46,11 +30,7 @@ function buildLines(
   let remaining = currentIndex;
   for (let i = 0; i < lines.length; i++) {
     const len = lines[i].end - lines[i].start;
-    if (remaining < len) {
-      typedLineIdx = i;
-      typedPos = remaining;
-      break;
-    }
+    if (remaining < len) { typedLineIdx = i; typedPos = remaining; break; }
     remaining -= len;
   }
   if (typedLineIdx < lines.length) {
@@ -63,7 +43,7 @@ function buildLines(
 
 export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [charWidth, setCharWidth] = useState(9.6);
+  const [charWidth, setCharWidth] = useState(15.6);
   const [width, setWidth] = useState(700);
 
   useEffect(() => {
@@ -74,7 +54,7 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
       setWidth(w);
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
-      ctx.font = '18px "JetBrains Mono", "Fira Code", monospace';
+      ctx.font = '20px "JetBrains Mono", "Fira Code", monospace';
       setCharWidth(ctx.measureText("a").width);
     };
     measure();
@@ -83,12 +63,10 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
     return () => ro.disconnect();
   }, []);
 
-  const { lines, typedLineIdx, typedPos } = buildLines(
-    chars, currentIndex, isFinished, width, charWidth
-  );
+  const { lines, typedLineIdx, typedPos } = buildLines(chars, currentIndex, isFinished, width, charWidth);
 
   return (
-    <div ref={containerRef} className="font-mono text-lg leading-relaxed">
+    <div ref={containerRef} className="font-mono text-xl leading-relaxed select-none">
       {lines.map((line, li) => {
         const isCurrentLine = li === typedLineIdx && !isFinished;
         const lineStart = line.start;
@@ -101,23 +79,19 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
               {line.chars.map((c, i) => {
                 const globalI = lineStart + i;
                 if (globalI < currentIndex || isFinished) {
-                  return (
-                    <span key={i} className="text-text-muted/25">{c.char}</span>
-                  );
+                  return <span key={i} className="text-[var(--text-tertiary)]">{c.char}</span>;
                 }
                 if (globalI === currentIndex && isCurrentLine) {
                   return (
                     <span key={i} className="relative">
                       <span className="invisible">{c.char}</span>
-                      <span className="absolute inset-0 flex items-center justify-center text-body bg-accent rounded-sm">
+                      <span className="absolute inset-0 flex items-center justify-center text-[var(--bg-card)] bg-[var(--char-cursor)] rounded-sm">
                         {c.char}
                       </span>
                     </span>
                   );
                 }
-                return (
-                  <span key={i} className="text-text-muted/60">{c.char}</span>
-                );
+                return <span key={i} className="text-[var(--text-secondary)]">{c.char}</span>;
               })}
             </div>
 
@@ -127,20 +101,15 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
                 const c = line.chars[i];
                 const match = c.typed === c.char;
                 return (
-                  <span
-                    key={i}
-                    className={`transition-colors duration-75 ${
-                      match
-                        ? "text-accent-green"
-                        : "text-accent-red bg-accent-red/10 underline decoration-wavy"
-                    }`}
-                  >
+                  <span key={i} className={`transition-colors duration-75 ${
+                    match ? "text-[var(--accent-green)]" : "text-[var(--char-incorrect)] bg-[var(--char-incorrect)]/10 underline decoration-wavy"
+                  }`}>
                     {c.typed === " " ? "\u00B7" : c.typed}
                   </span>
                 );
               })}
               {isCurrentLine && (
-                <span className="inline-block w-[3px] h-[1.2em] bg-accent/70 animate-pulse align-text-bottom ml-[1px]" />
+                <span className="inline-block w-[2px] h-[1.2em] bg-[var(--char-cursor)] animate-pulse align-text-bottom ml-[1px]" />
               )}
             </div>
           </div>
@@ -149,4 +118,3 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
     </div>
   );
 }
-

@@ -1,26 +1,36 @@
-﻿import { useState, useCallback } from "react";
+﻿import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { ConfigProvider, Layout } from "@arco-design/web-react";
+import { ThemeProvider } from "./context/ThemeContext";
+import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
-import type { GameConfig } from "./pages/HomePage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 
-type Page = "home" | "game";
+function AppLayout() {
+  return (
+    <Layout className="min-h-screen bg-body">
+      <NavBar />
+      <Layout.Content className="flex flex-col">
+        <Outlet />
+      </Layout.Content>
+    </Layout>
+  );
+}
 
 export default function App() {
-  const [page, setPage] = useState<Page>("home");
-  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
-
-  const handleStart = useCallback((config: GameConfig) => {
-    setGameConfig(config);
-    setPage("game");
-  }, []);
-
-  const handleBack = useCallback(() => {
-    setPage("home");
-  }, []);
-
-  if (page === "game" && gameConfig) {
-    return <GamePage config={gameConfig} onBack={handleBack} />;
-  }
-
-  return <HomePage onStart={handleStart} />;
+  return (
+    <ThemeProvider>
+      <ConfigProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/game" element={<GamePage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ConfigProvider>
+    </ThemeProvider>
+  );
 }

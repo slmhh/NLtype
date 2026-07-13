@@ -1,13 +1,9 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import TypingGame from "../components/TypingGame";
 import { englishWords } from "../data/en";
 import { getChineseText } from "../data/zh";
 import type { GameConfig } from "./HomePage";
-
-interface GamePageProps {
-  config: GameConfig;
-  onBack: () => void;
-}
 
 function generateEnglishWords(count: number): string {
   const words: string[] = [];
@@ -33,7 +29,6 @@ function generateText(config: GameConfig): string {
   if (config.language === "zh") {
     return getChineseText();
   }
-
   switch (config.mode) {
     case "words":
       return generateEnglishWords(config.wordCount);
@@ -46,13 +41,31 @@ function generateText(config: GameConfig): string {
   }
 }
 
-export default function GamePage({ config, onBack }: GamePageProps) {
+export default function GamePage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const stored = (location.state as { config?: GameConfig })?.config;
   const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (!stored) {
+      navigate("/", { replace: true });
+    }
+  }, [stored, navigate]);
+
+  const config = stored!;
+
   const text = useMemo(() => generateText(config), [config, key]);
 
   const handleRetry = useCallback(() => {
     setKey((k) => k + 1);
   }, []);
+
+  const handleBack = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
+  if (!stored) return null;
 
   return (
     <TypingGame
@@ -61,7 +74,7 @@ export default function GamePage({ config, onBack }: GamePageProps) {
       language={config.language}
       timeLimit={config.mode === "zen" || config.mode === "words" ? 0 : config.timeLimit}
       onRetry={handleRetry}
-      onBack={onBack}
+      onBack={handleBack}
     />
   );
 }
