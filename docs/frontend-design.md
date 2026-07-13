@@ -172,3 +172,136 @@
   - 统计栏改为两行：第一行显示 WPM 与准确率，第二行显示进度与用时。
   - 文本字号缩小至 20px，卡片内边距减半。
   - 多人模式下，双光标不再分行，改用颜色区分（蓝 / 橙）在同一行中交替显示。
+
+
+## 十一、代码可扩展性设计
+
+### 1. 类型系统（`src/types/`）
+
+所有共享类型集中定义，禁止在页面组件中内联定义类型。
+
+| 文件 | 内容 |
+|------|------|
+| `types/game.ts` | `GameMode`, `Language`, `GameConfig`, `ModeEntry`, `MODES` 数组, `TIME_OPTIONS`, `WORD_OPTIONS`, `defaultConfig()` |
+| `types/results.ts` | `GameResult`, `LeaderboardEntry` — 游戏结算与排行榜数据结构 |
+
+**新增游戏模式：** 在 `GameMode` 联合类型中添加字面量 → 在 `MODES` 数组中追加条目（含 `enabled: true/false`） → HomePage 自动渲染新标签。选项按钮逻辑通过 `mode === "xxx"` 分支处理。
+
+**新增排行榜字段：** 在 `GameResult` 中追加字段 → `saveResult()` 自动持久化 → `getLeaderboard()` 返回新字段 → LeaderboardPage 渲染。
+
+### 2. 全局状态管理（`src/context/`）
+
+所有跨页面共享的状态通过 React Context 提供：
+
+| Context | 文件 | 管理内容 |
+|---------|------|---------|
+| ThemeContext | `context/ThemeContext.tsx` | `theme: "light" / "dark"`, `toggle()` — 持久化到 localStorage |
+| LanguageContext | `context/LanguageContext.tsx` | `language: "en" / "zh"`, `setLanguage()` — 持久化到 localStorage |
+
+Context Provider 按层级包裹在 `App.tsx` 中：
+```
+ThemeProvider → LanguageProvider → ConfigProvider → BrowserRouter → Routes
+```
+
+**新增全局状态：** 创建 `context/XxxContext.tsx` → 在 `App.tsx` 中添加 Provider → 页面/组件通过 `useXxx()` hook 消费。遵循 "Provider 在顶层，hook 在消费处" 模式。
+
+### 3. 主题系统（CSS Variables）
+
+所有颜色通过 CSS 自定义属性定义，支持双向主题：
+
+```css
+:root {               /* 浅色模式默认值 */
+  --bg-page: #F7F8FA;
+  --text-primary: #1E293B;
+  --accent: #4F7CFF;
+  /* Arco Design 组件变量覆盖 */
+  --color-bg-2: #FFFFFF;
+  ...
+}
+:root[data-theme="dark"] {  /* 深色模式覆盖 */
+  --bg-page: #0F172A;
+  --text-primary: #E2E8F0;
+  --accent: #60A5FA;
+  /* Arco Design 组件变量覆盖 */
+  --color-bg-2: #1E293B;
+  ...
+}
+```
+
+Tailwind 配置引用 CSS 变量（`tailwind.config.js`）：
+```js
+colors: {
+  body: "var(--bg-page)",
+  text: { DEFAULT: "var(--text-primary)", ... },
+  accent: { DEFAULT: "var(--accent)", ... },
+}
+```
+
+**新增主题色：** 添加 CSS 变量 → 在 Tailwind config 中添加映射 → 使用 `text-[var(--xxx)]` 或 Tailwind 类名。
+
+**新增第三主题（如 high-contrast）：** 添加 `:root[data-theme="high-contrast"]` 变量块 → ThemeContext 扩展 `theme` 类型。
+
+### 4. 数据持久化（`src/services/`）
+
+基于 localStorage 的抽象层，所有存储操作通过 `services/storage.ts` 进行：
+
+```ts
+// services/storage.ts — 泛型工具
+load<T>(key: string, fallback: T): T
+save(key: string, value: unknown): void
+remove(key: string): void
+
+// services/results.ts — 业务层
+saveResult(config, stats): GameResult
+getResults(): GameResult[]
+getLeaderboard(limit): LeaderboardEntry[]
+useResults(): { results, add, saved }
+```
+
+**切换到后端 API：** 只需替换 `services/storage.ts` 中的 `load`/`save` 实现为 `fetch()` 调用，上层代码无需改动。
+
+**新增持久化需求：** 在 `services/` 下新建模块文件，复用 `storage.ts` 的 `load`/`save` 工具函数。
+
+### 5. 路由结构
+
+```
+/                → HomePage   (配置页面)
+/leaderboard     → LeaderboardPage (排行榜)
+/game            → GamePage   (游戏页面，通过 location.state 接收配置)
+```
+
+新增页面只需：
+1. 创建 `pages/NewPage.tsx`
+2. 在 `App.tsx` 的 `<Routes>` 中添加 `<Route path="/xxx" element={<NewPage />} />`
+3. 在 `NavBar` 中添加导航链接
+
+### 6. 游戏引擎（Hooks）
+
+核心游戏逻辑封装在独立 hooks 中，与 UI 完全解耦：
+
+| Hook | 职责 | 多人模式扩展点 |
+|------|------|-------------|
+| `useTypingEngine` | 键盘事件监听、字符匹配、WPM 计算 | 需重构为接收 `onKeystroke(senderId, char, position)` 回调，支持远程同步 |
+| `useTimer` | 倒计时 / 计时器 | 多人场景需支持服务端时钟同步 |
+
+新增游戏玩法（如限时模式、段落模式）只需替换 `generateText()` 函数和传入 `TypingGame` 的 `timeLimit` 参数，引擎逻辑不变。
+
+### 7. 组件分层
+
+```
+pages/          ← 页面级组件，有路由
+  HomePage       (#配置) → 组合 ModeSelect + OptionButtons + StartButton
+  GamePage        (#游戏) → 组合 TypingGame
+  LeaderboardPage (#排行) → 组合 ResultsTable
+components/     ← 可复用 UI 组件
+  NavBar          (#导航) → 消费 ThemeContext, LanguageContext
+  TypingGame      (#游戏壳) → 组合 TypingDisplay + StatsBar + ProgressBar + ResultModal
+  TypingDisplay   (#文本展示) → 纯展示，接收 chars[] + currentIndex
+context/        ← React Context
+hooks/          ← 自定义 Hooks（引擎、计时器）
+services/       ← 数据存取抽象
+types/          ← 共享类型定义
+data/           ← 静态数据（单词表、中文文本）
+```
+
+新功能开发流程：确定影响层级 → 修改 types → 实现 service/hook → 创建/修改 component → 组装到 page → 添加路由。

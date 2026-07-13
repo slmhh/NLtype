@@ -3,16 +3,19 @@ import { Button, Modal, Statistic, Tag } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { TypingDisplay } from "./TypingDisplay";
+import type { GameConfig } from "../types/game";
+import { saveResult } from "../services/results";
 
 interface TypingGameProps {
   text: string;
   language: "en" | "zh";
   timeLimit: number;
+  gameConfig: GameConfig;
   onRetry: () => void;
   onBack: () => void;
 }
 
-export default function TypingGame({ text, language, timeLimit, onRetry, onBack }: TypingGameProps) {
+export default function TypingGame({ text, language, timeLimit, gameConfig, onRetry, onBack }: TypingGameProps) {
   const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -48,6 +51,22 @@ export default function TypingGame({ text, language, timeLimit, onRetry, onBack 
     }
     inputRef.current?.focus();
   }, [text, timeLimit, resetTyping, hasTimer]);
+
+  const savedRef = useRef(false);
+  useEffect(() => {
+    if (phase === "finished" && !savedRef.current) {
+      savedRef.current = true;
+      saveResult(gameConfig, {
+        wpm: typingState.wpm,
+        accuracy: typingState.accuracy,
+        cpm: typingState.cpm,
+        rawWpm: typingState.rawWpm,
+        correctCount: typingState.correctCount,
+        incorrectCount: typingState.incorrectCount,
+        durationSec: Math.round(typingState.elapsedMs / 1000),
+      });
+    }
+  }, [phase, typingState, gameConfig]);
 
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;

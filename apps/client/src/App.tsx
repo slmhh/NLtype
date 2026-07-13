@@ -1,6 +1,7 @@
 ﻿import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { ConfigProvider, Layout } from "@arco-design/web-react";
 import { ThemeProvider } from "./context/ThemeContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
@@ -20,17 +21,19 @@ function AppLayout() {
 export default function App() {
   return (
     <ThemeProvider>
-      <ConfigProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="/game" element={<GamePage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </ConfigProvider>
+      <LanguageProvider>
+        <ConfigProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/game" element={<GamePage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ConfigProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

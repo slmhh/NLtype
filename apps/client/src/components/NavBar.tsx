@@ -2,18 +2,20 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button, Divider, Layout } from "@arco-design/web-react";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
+import type { Language } from "../types/game";
 
 export default function NavBar() {
   const location = useLocation();
   const { theme, toggle } = useTheme();
+  const { language, setLanguage } = useLanguage();
   const [langOpen, setLangOpen] = useState(false);
 
-  const langs = [
+  const langs: { key: Language; label: string }[] = [
     { key: "en", label: "English" },
     { key: "zh", label: "中文" },
   ];
-  const [lang, setLang] = useState("en");
-  const current = langs.find((l) => l.key === lang)!;
+  const current = langs.find((l) => l.key === language)!;
 
   return (
     <Layout.Header className="flex items-center justify-between px-6 h-14 border-b border-[var(--border)] bg-card/90 backdrop-blur-sm sticky top-0 z-50 transition-colors">
@@ -76,9 +78,9 @@ export default function NavBar() {
               {langs.map((l) => (
                 <button
                   key={l.key}
-                  onMouseDown={() => { setLang(l.key); setLangOpen(false); }}
+                  onMouseDown={() => { setLanguage(l.key); setLangOpen(false); }}
                   className={`w-full text-left px-3 py-1.5 text-xs tracking-wider transition-colors font-mono ${
-                    lang === l.key
+                    language === l.key
                       ? "text-[var(--accent)] bg-[var(--accent-soft)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-alt)]"
                   }`}

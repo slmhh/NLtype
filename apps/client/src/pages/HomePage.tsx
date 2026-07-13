@@ -1,33 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
+import type { GameConfig, GameMode, Language } from "../types/game";
+import { MODES, TIME_OPTIONS, WORD_OPTIONS, defaultConfig } from "../types/game";
 
-export type GameMode = "time" | "words" | "quote" | "code" | "zen";
-export type Language = "en" | "zh";
-
-export interface GameConfig {
-  mode: GameMode;
-  language: Language;
-  timeLimit: number;
-  wordCount: number;
-}
-
-const MODES: { id: GameMode; label: string }[] = [
-  { id: "time", label: "时间" },
-  { id: "words", label: "单词" },
-  { id: "quote", label: "引用" },
-  { id: "code", label: "代码" },
-  { id: "zen", label: "禅" },
-];
-
-const TIME_OPTIONS = [15, 30, 60, 120];
-const WORD_OPTIONS = [10, 25, 50, 100, 200];
+export type { GameConfig, GameMode, Language } from "../types/game";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<GameMode>("time");
-  const [timeLimit, setTimeLimit] = useState(30);
-  const [wordCount, setWordCount] = useState(50);
-  const [language, setLanguage] = useState<Language>("en");
+  const { language, setLanguage } = useLanguage();
+  const config = useState<GameConfig>(defaultConfig)[0];
+  const [mode, setMode] = useState<GameMode>(config.mode);
+  const [timeLimit, setTimeLimit] = useState(config.timeLimit);
+  const [wordCount, setWordCount] = useState(config.wordCount);
   const [mounted, setMounted] = useState(false);
   const readyRef = useRef(false);
 
@@ -72,11 +57,16 @@ export default function HomePage() {
         {/* Mode tabs */}
         <div className="flex items-center gap-2 mb-6">
           {MODES.map((m) => (
-            <button key={m.id} onClick={() => setMode(m.id)}
+            <button
+              key={m.id}
+              disabled={!m.enabled}
+              onClick={() => m.enabled && setMode(m.id)}
               className={`px-4 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all duration-200 font-mono ${
-                mode === m.id
+                mode === m.id && m.enabled
                   ? "bg-[var(--accent)] text-white"
-                  : "bg-[var(--bg-alt)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  : m.enabled
+                    ? "bg-[var(--bg-alt)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                    : "bg-[var(--bg-alt)] text-[var(--text-tertiary)] opacity-40 cursor-not-allowed"
               }`}>
               {m.label}
             </button>
@@ -104,7 +94,7 @@ export default function HomePage() {
             </button>
           ))}
           {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">∞ 无限模式</span>}
-          {(mode === "quote" || mode === "code") && <span className="text-[var(--text-tertiary)] text-sm tracking-wider italic font-mono">即将推出</span>}
+          {!MODES.find((m) => m.id === mode)?.enabled && <span className="text-[var(--text-tertiary)] text-sm tracking-wider italic font-mono">即将推出</span>}
         </div>
 
         {/* Language */}

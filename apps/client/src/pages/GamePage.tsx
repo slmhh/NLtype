@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import TypingGame from "../components/TypingGame";
 import { englishWords } from "../data/en";
 import { getChineseText } from "../data/zh";
-import type { GameConfig } from "./HomePage";
+import type { GameConfig } from "../types/game";
 
 function generateEnglishWords(count: number): string {
   const words: string[] = [];
@@ -73,6 +73,7 @@ export default function GamePage() {
       text={text}
       language={config.language}
       timeLimit={config.mode === "zen" || config.mode === "words" ? 0 : config.timeLimit}
+      gameConfig={config}
       onRetry={handleRetry}
       onBack={handleBack}
     />
