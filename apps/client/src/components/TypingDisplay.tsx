@@ -22,7 +22,6 @@ function buildLines(
   while (start < chars.length) {
     let end = Math.min(start + charsPerLine, chars.length);
 
-    // Try to break at a space (word boundary), but don't break shorter than 15
     if (end < chars.length && chars[end]?.char !== " ") {
       let breakAt = start + charsPerLine;
       for (let i = end; i > start + 15; i--) {
@@ -42,7 +41,6 @@ function buildLines(
     start = end;
   }
 
-  // Compute "typed end" line index and position within that line
   let typedLineIdx = 0;
   let typedPos = 0;
   let remaining = currentIndex;
@@ -55,7 +53,6 @@ function buildLines(
     }
     remaining -= len;
   }
-  // Clamp typedPos to line length (handles isFinished edge case)
   if (typedLineIdx < lines.length) {
     typedPos = Math.min(isFinished ? lines[typedLineIdx].chars.length : typedPos, lines[typedLineIdx].chars.length - 1);
     if (typedPos < 0) typedPos = 0;
@@ -69,14 +66,12 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
   const [charWidth, setCharWidth] = useState(9.6);
   const [width, setWidth] = useState(700);
 
-  // Measure character width and container width on mount + resize
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const measure = () => {
       const w = el.clientWidth;
       setWidth(w);
-      // Measure "a" width with monospace font
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
       ctx.font = '18px "JetBrains Mono", "Fira Code", monospace';
@@ -89,11 +84,7 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
   }, []);
 
   const { lines, typedLineIdx, typedPos } = buildLines(
-    chars,
-    currentIndex,
-    isFinished,
-    width,
-    charWidth
+    chars, currentIndex, isFinished, width, charWidth
   );
 
   return (
@@ -111,23 +102,26 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
                 const globalI = lineStart + i;
                 if (globalI < currentIndex || isFinished) {
                   return (
-                    <span key={i} className="text-text-muted/30">{c.char}</span>
+                    <span key={i} className="text-text-muted/25">{c.char}</span>
                   );
                 }
                 if (globalI === currentIndex && isCurrentLine) {
                   return (
-                    <span key={i} className="text-accent border-b-2 border-accent bg-accent/15">
-                      {c.char}
+                    <span key={i} className="relative">
+                      <span className="invisible">{c.char}</span>
+                      <span className="absolute inset-0 flex items-center justify-center text-body bg-accent rounded-sm">
+                        {c.char}
+                      </span>
                     </span>
                   );
                 }
                 return (
-                  <span key={i} className="text-text-muted">{c.char}</span>
+                  <span key={i} className="text-text-muted/60">{c.char}</span>
                 );
               })}
             </div>
 
-            {/* Typed text line 鈥?only for current line or completed lines */}
+            {/* Typed text line */}
             <div className="whitespace-pre-wrap break-all min-h-[1.2em]">
               {Array.from({ length: isFinished ? line.chars.length : localPos }, (_, i) => {
                 const c = line.chars[i];
@@ -135,18 +129,18 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
                 return (
                   <span
                     key={i}
-                    className={
+                    className={`transition-colors duration-75 ${
                       match
                         ? "text-accent-green"
                         : "text-accent-red bg-accent-red/10 underline decoration-wavy"
-                    }
+                    }`}
                   >
                     {c.typed === " " ? "\u00B7" : c.typed}
                   </span>
                 );
               })}
               {isCurrentLine && (
-                <span className="inline-block w-[2px] h-[1.2em] bg-accent animate-pulse align-text-bottom" />
+                <span className="inline-block w-[3px] h-[1.2em] bg-accent/70 animate-pulse align-text-bottom ml-[1px]" />
               )}
             </div>
           </div>

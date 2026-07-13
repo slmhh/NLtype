@@ -1,265 +1,218 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
-import { englishWords } from "../data/en";
-import { getChineseText as getChineseLocal } from "../data/zh";
 import { TypingDisplay } from "./TypingDisplay";
 
-type GamePhase = "idle" | "countdown" | "playing" | "finished";
+type GamePhase = "playing" | "finished";
 
-async function fetchTextFromAPI(lang: string) {
-  try {
-    const ep = lang === "en" ? "/api/text/english" : "/api/text/chinese";
-    const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.text ?? null;
-  } catch {
-    return null;
-  }
+interface TypingGameProps {
+  text: string;
+  language: "en" | "zh";
+  timeLimit: number;
+  onFinish?: (result: { wpm: number; accuracy: number; cpm: number; rawWpm: number }) => void;
+  onRetry: () => void;
+  onBack: () => void;
 }
 
-function generateEnglishTextLocal() {
-  const targetLen = 200;
-  const words: string[] = [];
-  let len = 0;
-  while (len < targetLen) {
-    const w = englishWords[Math.floor(Math.random() * englishWords.length)];
-    words.push(w);
-    len += w.length + 1;
-  }
-  return words.slice(0, -1).join(" ");
-}
-
-export default function TypingGame() {
-  const [language, setLanguage] = useState<"en" | "zh">("en");
-  const [timeLimit, setTimeLimit] = useState(30);
-  const [phase, setPhase] = useState<GamePhase>("idle");
-  const [gameText, setGameText] = useState(() => generateEnglishTextLocal());
+export default function TypingGame({ text, language, timeLimit, onFinish, onRetry, onBack }: TypingGameProps) {
+  const [phase, setPhase] = useState<GamePhase>("playing");
   const [showResult, setShowResult] = useState(false);
-  const [fetching, setFetching] = useState(false);
-  const [compCount, setCompCount] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const hasTimer = timeLimit > 0;
 
   const onTimeUp = useCallback(() => {
     setPhase("finished");
     setShowResult(true);
   }, []);
 
-  const timer = useTimer(timeLimit, onTimeUp);
-  const onFinish = useCallback(() => {
+  const timer = useTimer(hasTimer ? timeLimit : 0, onTimeUp);
+  const timerRef = useRef(timer);
+  timerRef.current = timer;
+
+  const onGameFinish = useCallback(() => {
     setPhase("finished");
     setShowResult(true);
-    timer.stop();
-  }, [timer]);
+    if (hasTimer) timerRef.current.stop();
+  }, [hasTimer]);
 
   const { state: typingState, reset: resetTyping } = useTypingEngine({
-    text: gameText,
+    text,
     language,
     isActive: phase === "playing",
-    onFinish,
+    onFinish: onGameFinish,
   });
 
-  const startGame = useCallback(async () => {
-    setFetching(true);
-    const text = await fetchTextFromAPI(language).catch(() => null) ||
-      (language === "en" ? generateEnglishTextLocal() : getChineseLocal());
-    setGameText(text);
+  useEffect(() => {
     resetTyping(text);
-    setShowResult(false);
-    setFetching(false);
-    setPhase("playing");
-    timer.reset(timeLimit);
-    timer.start();
-    setTimeout(() => textareaRef.current?.focus(), 50);
-  }, [language, timeLimit, resetTyping, timer]);
+    if (hasTimer) {
+      timerRef.current.reset(timeLimit);
+      timerRef.current.start();
+    }
+    inputRef.current?.focus();
+  }, [text, timeLimit, resetTyping, hasTimer]);
 
-  const newGame = useCallback(() => {
-    setPhase("idle");
-    setShowResult(false);
-    timer.reset(timeLimit);
-  }, [timeLimit, timer]);
-
-
-  const toggleLanguage = useCallback(() => {
-    setLanguage((l) => (l === "en" ? "zh" : "en"));
-    setPhase("idle");
-    setShowResult(false);
-  }, []);
+  useEffect(() => {
+    if (phase === "finished" && typingState.wpm > 0) {
+      onFinish?.({ wpm: typingState.wpm, accuracy: typingState.accuracy, cpm: typingState.cpm, rawWpm: typingState.rawWpm });
+    }
+  }, [phase, typingState, onFinish]);
 
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-      <h1 className="text-2xl font-bold text-accent mb-8 tracking-widest">NLType</h1>
-
-      <div className="flex items-center gap-4 mb-8">
+      {/* Top bar */}
+      <div className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-40">
         <button
-          onClick={toggleLanguage}
-          disabled={phase === "playing"}
-          className={`px-4 py-2 rounded-lg text-sm border transition-colors
-            ${phase === "playing"
-              ? "bg-surface-alt border-text-muted/10 text-text-muted/40 cursor-not-allowed"
-              : "bg-surface-alt border-text-muted/20 text-text hover:border-accent/50"
-            }`}
+          onClick={onBack}
+          className="text-text-muted/30 hover:text-text-muted/60 text-sm tracking-widest uppercase transition-colors duration-150"
         >
-          {language === "en" ? "English" : "\u4E2D\u6587"}
+          ← back
         </button>
-
-        {phase === "idle" && (
-          <div className="flex gap-2">
-            {[15, 30, 60, 120].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTimeLimit(t)}
-                className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                  timeLimit === t
-                    ? "bg-accent text-surface font-semibold"
-                    : "bg-surface-alt border border-text-muted/20 text-text-muted hover:text-text"
-                }`}
-              >
-                {t}s
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-text-muted/20 text-[10px] tracking-widest uppercase">{language === "en" ? "en" : "zh"}</span>
+        </div>
       </div>
 
-      <div className="w-full max-w-3xl">
-        <div className="text-center mb-6">          {phase === "playing" && (
+      {/* Timer bar */}
+      {hasTimer && (
+        <div className="mb-6 text-center">
+          <div
+            className={`text-5xl font-bold font-mono tracking-wider transition-colors duration-300 ${
+              timer.timeLeft <= 5
+                ? "text-accent-red"
+                : "text-text/80"
+            }`}
+          >
+            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+          </div>
+          {/* Progress bar */}
+          <div className="w-32 h-[2px] mx-auto mt-2 bg-surface-ov/50 rounded-full overflow-hidden">
             <div
-              className={`text-4xl font-bold font-mono ${
-                timer.timeLeft <= 5
-                  ? "text-accent-red animate-pulse"
-                  : "text-text"
-              }`}
-            >
-              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-            </div>
-          )}
+              className="h-full bg-accent/60 rounded-full transition-all duration-1000 ease-linear"
+              style={{ width: `${(timer.timeLeft / timeLimit) * 100}%` }}
+            />
+          </div>
         </div>
+      )}
 
+      {/* Hidden textarea for IME/focus capture */}
+      <textarea
+        ref={inputRef}
+        className="absolute opacity-0 w-0 h-0 -z-10"
+        autoFocus
+      />
+
+      {/* Game Area */}
+      <div
+        className="relative w-full max-w-3xl bg-surface-alt/30 backdrop-blur-sm rounded-2xl p-5
+                   border border-text-muted/5 transition-colors duration-300
+                   focus-within:border-accent/20"
+        onClick={() => inputRef.current?.focus()}
+      >
         {phase === "playing" && (
-          <textarea
-            className="absolute opacity-0 w-0 h-0 -z-10"
-            autoFocus
-
+          <TypingDisplay
+            chars={typingState.chars}
+            currentIndex={typingState.currentIndex}
+            isFinished={typingState.isFinished}
           />
         )}
-        <div
-          className="relative w-full bg-surface-alt rounded-xl p-3
-                     border border-text-muted/10 focus:border-accent/50
-                     focus:outline-none transition-colors cursor-text"
-          onClick={() => setTimeout(() => textareaRef.current?.focus(), 0)}
-        >
-          {phase === "idle" && (
-            <div className="text-center text-text-muted py-12">
-              <p className="text-lg mb-4">
-                {fetching ? "Loading..." : "Ready to start?"}
-              </p>
-              <button
-                onClick={startGame}
-                disabled={fetching}
-                className="px-8 py-3 bg-accent text-surface font-bold rounded-lg
-                           hover:bg-accent/80 transition-colors text-lg
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {fetching ? "Loading..." : "Start"}
-              </button>
-              <p className="text-sm mt-4 text-text-muted/60">Press any key to start</p>
-            </div>
-          )}
-
-          {phase === "playing" && (
-            <TypingDisplay
-              chars={typingState.chars}
-              currentIndex={typingState.currentIndex}
-              isFinished={typingState.isFinished}
-            />
-          )}
-        </div>
-
-        {phase === "playing" && (
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <StatCard label="WPM" value={String(typingState.wpm)} />
-            <StatCard label="Acc" value={`${typingState.accuracy}%`} />
-            <StatCard label="Progress" value={getProgress(typingState)} />
-            <StatCard label="CPM" value={String(typingState.cpm)} />
-          </div>
-        )}
       </div>
 
+      {/* Stats bar */}
+      {phase === "playing" && (
+        <div className="flex items-center justify-center gap-6 mt-6">
+          <StatItem label="wpm" value={String(typingState.wpm)} />
+          <div className="w-px h-5 bg-text-muted/8" />
+          <StatItem label="acc" value={`${typingState.accuracy}%`} />
+          <div className="w-px h-5 bg-text-muted/8" />
+          <StatItem label="cpm" value={String(typingState.cpm)} />
+          <div className="w-px h-5 bg-text-muted/8" />
+          <StatItem label="raw" value={String(typingState.rawWpm)} />
+          <div className="w-px h-5 bg-text-muted/8" />
+          <StatItem label="progress" value={getProgress(typingState)} />
+        </div>
+      )}
+
+      {/* Result Modal */}
       {showResult && phase === "finished" && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-surface-alt rounded-2xl p-8 w-full max-w-md border border-text-muted/20">
-            <h2 className="text-2xl font-bold text-center text-accent mb-6">Result</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-surface/95 border border-text-muted/8 rounded-3xl p-12 w-full max-w-sm mx-4 shadow-2xl">
+            <p className="text-center text-text-muted/30 text-[10px] tracking-[0.3em] uppercase mb-6">
+              result
+            </p>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <ResultStat label="WPM" value={String(typingState.wpm)} />
-              <ResultStat label="Accuracy" value={`${typingState.accuracy}%`} />
-              <ResultStat label="CPM" value={String(typingState.cpm)} />
-              <ResultStat label="Raw WPM" value={String(typingState.rawWpm)} />
+            {/* Big WPM */}
+            <div className="text-center mb-8">
+              <div className="text-7xl font-bold text-accent font-mono tracking-tight">
+                {typingState.wpm}
+              </div>
+              <div className="text-xs text-text-muted/40 tracking-[0.25em] uppercase mt-1">
+                wpm
+              </div>
             </div>
 
-            <div className="flex gap-1 justify-center mb-6 text-xs text-text-muted">
-              <span className="bg-accent-green/20 text-accent-green px-2 py-1 rounded">
-                OK {typingState.correctCount}
+            {/* Stats grid */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              <MiniStat label="accuracy" value={`${typingState.accuracy}%`} />
+              <MiniStat label="cpm" value={String(typingState.cpm)} />
+              <MiniStat label="raw" value={String(typingState.rawWpm)} />
+            </div>
+
+            {/* Character counts */}
+            <div className="flex items-center justify-center gap-3 mb-8">
+              <span className="flex items-center gap-1.5 text-accent-green/80 text-xs">
+                <span className="w-2 h-2 rounded-full bg-accent-green/40" />
+                {typingState.correctCount} correct
               </span>
-              <span className="bg-accent-red/20 text-accent-red px-2 py-1 rounded">
-                ERR {typingState.incorrectCount}
-              </span>
-              <span className="bg-text-muted/10 px-2 py-1 rounded">
-                TTL {typingState.correctCount + typingState.incorrectCount}
+              <span className="text-text-muted/20">·</span>
+              <span className="flex items-center gap-1.5 text-accent-red/80 text-xs">
+                <span className="w-2 h-2 rounded-full bg-accent-red/40" />
+                {typingState.incorrectCount} wrong
               </span>
             </div>
 
-            <div className="flex gap-3">
+            {/* Buttons */}
+            <div className="flex gap-2.5">
               <button
-                onClick={startGame}
-                className="flex-1 px-4 py-3 bg-accent text-surface font-semibold
-                           rounded-lg hover:bg-accent/80 transition-colors"
+                onClick={onRetry}
+                className="flex-1 px-4 py-3 bg-accent text-surface font-bold
+                           rounded-2xl hover:bg-accent/90 active:scale-[0.98]
+                           transition-all duration-150 text-sm tracking-wider uppercase"
               >
-                Retry
+                retry
               </button>
               <button
-                onClick={newGame}
-                className="flex-1 px-4 py-3 bg-surface border border-text-muted/20
-                           text-text rounded-lg hover:border-text-muted/40 transition-colors"
+                onClick={onBack}
+                className="flex-1 px-4 py-3 border border-text-muted/10 text-text-muted
+                           rounded-2xl hover:border-text-muted/25 hover:text-text/80 active:scale-[0.98]
+                           transition-all duration-150 text-sm tracking-wider uppercase"
               >
-                Back
+                back
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {phase === "idle" && !fetching && (
-        <p className="text-xs text-text-muted/40 mt-8">Press any key to start</p>
-      )}
-      {phase === "playing" && (
-        <div className="fixed top-1 right-1 text-[10px] text-text-muted/30 pointer-events-none z-50">
-          comp:{compCount} lang:{language}
-        </div>
-      )}
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-surface-alt rounded-xl p-3 text-center border border-text-muted/10">
-      <div className="text-xl font-bold text-text font-mono">{value}</div>
-      <div className="text-xs text-text-muted mt-1">{label}</div>
+    <div className="text-center">
+      <div className="text-lg font-semibold text-text/80 font-mono tabular-nums">{value}</div>
+      <div className="text-[10px] text-text-muted/35 tracking-[0.2em] uppercase mt-0.5">{label}</div>
     </div>
   );
 }
 
-function ResultStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-surface rounded-lg p-3 text-center">
-      <div className="text-2xl font-bold text-accent font-mono">{value}</div>
-      <div className="text-xs text-text-muted mt-1">{label}</div>
+    <div className="bg-surface-ov/30 rounded-2xl py-3 text-center border border-text-muted/5">
+      <div className="text-xl font-bold text-text/70 font-mono tabular-nums">{value}</div>
+      <div className="text-[9px] text-text-muted/40 tracking-[0.2em] uppercase mt-0.5">{label}</div>
     </div>
   );
 }
