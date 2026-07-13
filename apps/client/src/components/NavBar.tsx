@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Button, Divider, Layout } from "@arco-design/web-react";
+import { Button, Layout } from "@arco-design/web-react";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { Language } from "../types/game";
@@ -14,64 +14,47 @@ export default function NavBar() {
   const langs: { key: Language; label: string }[] = [
     { key: "en", label: "English" },
     { key: "zh", label: "中文" },
+    { key: "code", label: "Code" },
   ];
   const current = langs.find((l) => l.key === language)!;
 
+  const navLinkClass = (isActive: boolean) =>
+    `text-sm tracking-[0.15em] transition-colors ${
+      isActive ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+    }`;
+
   return (
-    <Layout.Header className="flex items-center justify-between px-6 h-14 border-b border-[var(--border)] bg-card/90 backdrop-blur-sm sticky top-0 z-50 transition-colors">
-      {/* ── Left: brand ── */}
-      <NavLink to="/" className="no-underline">
+    <Layout.Header className="flex items-center px-6 h-14 border-b border-[var(--border)] bg-card/90 backdrop-blur-sm sticky top-0 z-50 transition-colors">
+      {/* Brand */}
+      <NavLink to="/" className="no-underline mr-8">
         <span className="text-[var(--text-primary)] font-bold tracking-[0.25em] text-base uppercase select-none">
           NLType
         </span>
       </NavLink>
 
-      {/* ── Center: mode switch ── */}
-      <div className="flex items-center gap-0.5 bg-[var(--bg-alt)] rounded-full p-0.5">
-        <span className="px-5 py-1.5 text-sm tracking-[0.15em] rounded-full bg-[var(--accent)] text-white font-medium transition-all cursor-default select-none">
-          单人模式
-        </span>
-        <span className="px-5 py-1.5 text-sm tracking-[0.15em] rounded-full text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors cursor-not-allowed select-none">
-          多人模式
-        </span>
+      {/* Left nav links */}
+      <div className="flex items-center gap-5">
+        <NavLink to="/" end className="no-underline">
+          {({ isActive }) => <span className={navLinkClass(isActive || location.pathname === "/game")}>游戏</span>}
+        </NavLink>
+        <NavLink to="/leaderboard" className="no-underline">
+          {({ isActive }) => <span className={navLinkClass(isActive)}>排行榜</span>}
+        </NavLink>
       </div>
 
-      {/* ── Right: nav links + actions ── */}
-      <div className="flex items-center gap-3">
-        {/* Nav links */}
-        <div className="flex items-center gap-2">
-          <NavLink to="/" end className="no-underline">
-            {({ isActive }) => (
-              <span className={`text-sm tracking-[0.15em] transition-colors ${
-                isActive || location.pathname === "/game"
-                  ? "text-[var(--text-primary)]"
-                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}>
-                游戏
-              </span>
-            )}
-          </NavLink>
-          <NavLink to="/leaderboard" className="no-underline">
-            {({ isActive }) => (
-              <span className={`text-sm tracking-[0.15em] transition-colors ${
-                isActive ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}>
-                排行榜
-              </span>
-            )}
-          </NavLink>
-        </div>
+      {/* Spacer */}
+      <div className="flex-1" />
 
-        <Divider type="vertical" className="!border-[var(--border)]" />
-
+      {/* Right actions */}
+      <div className="flex items-center gap-4">
         {/* Language dropdown */}
         <div className="relative">
           <button
             onClick={() => setLangOpen(!langOpen)}
             onBlur={() => setTimeout(() => setLangOpen(false), 150)}
-            className="text-xs tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors font-mono px-1.5 py-0.5 rounded"
+            className="text-xs tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors font-mono"
           >
-            {current.key === "en" ? "EN" : "中文"}
+            {current.key === "en" ? "EN" : current.key === "zh" ? "中文" : "Code"}
           </button>
           {langOpen && (
             <div className="absolute right-0 top-full mt-1 min-w-[100px] bg-card border border-[var(--border)] rounded-lg shadow-card py-1 z-50">

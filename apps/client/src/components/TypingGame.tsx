@@ -3,12 +3,12 @@ import { Button, Modal, Statistic, Tag } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { TypingDisplay } from "./TypingDisplay";
-import type { GameConfig } from "../types/game";
+import type { GameConfig, Language } from "../types/game";
 import { saveResult } from "../services/results";
 
 interface TypingGameProps {
   text: string;
-  language: "en" | "zh";
+  language: Language;
   timeLimit: number;
   gameConfig: GameConfig;
   onRetry: () => void;
@@ -102,11 +102,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
             }`}>
               {timerLabel}
             </span>
-            {language === "en" ? (
-              <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">EN</span>
-            ) : (
-              <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">ZH</span>
-            )}
+            <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{language === "en" ? "EN" : language === "zh" ? "ZH" : "Code"}</span>
           </div>
         )}
 

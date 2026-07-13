@@ -21,7 +21,7 @@ export interface TypingState {
 
 interface UseTypingEngineOptions {
   text: string;
-  language: "en" | "zh";
+  language: "en" | "zh" | "code";
   isActive: boolean;
   onFinish: () => void;
 }
