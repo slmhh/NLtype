@@ -31,7 +31,9 @@ export default function NavBar() {
 
   const userMenu = (
     <Menu onClickMenuItem={(key) => { if (key === "logout") logout(); }}>
-      <Menu.Item key="profile" disabled>个人信息</Menu.Item>
+      <Menu.Item key="profile">
+        <NavLink to="/profile" className="no-underline text-inherit">个人信息</NavLink>
+      </Menu.Item>
       <PermissionGuard permission="admin:panel">
         <Menu.Item key="admin">
           <NavLink to="/admin" className="no-underline text-inherit">管理面板</NavLink>
