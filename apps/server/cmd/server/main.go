@@ -1,116 +1,277 @@
 ﻿package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
-	"math/rand"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
-	"log"
+	"sync"
+	"time"
 )
 
-var words []string
-var chinese []string
+var (
+	dataDir string
+	jwtKey  = []byte(getEnv("JWT_SECRET", "dev-secret-change-in-production"))
+	mu      sync.RWMutex
+)
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 func findDataDir() string {
 	exe, _ := os.Executable()
 	dir := filepath.Dir(exe)
-
 	candidates := []string{
 		filepath.Join(dir, "data"),
-		filepath.Join(dir, "..", "data"),
+		filepath.Join(dir, "..", "..", "data"),
 		"apps/server/data",
 		"data",
 	}
 	for _, d := range candidates {
 		abs, _ := filepath.Abs(d)
-		if _, err := os.Stat(filepath.Join(abs, "en", "words.json")); err == nil {
+		if info, err := os.Stat(abs); err == nil && info.IsDir() {
 			return abs
 		}
 	}
-	return filepath.Join(dir, "data")
+	// Fall back to create data/ alongside the binary
+	dataDir := filepath.Join(dir, "data")
+	os.MkdirAll(dataDir, 0755)
+	return dataDir
 }
 
-func loadData() {
-	dir := findDataDir()
-	log.Printf("Loading data from: %s", dir)
-	data, err := os.ReadFile(filepath.Join(dir, "en", "words.json"))
-	if err != nil { log.Fatalf("en/words.json: %v", err) }
-	json.Unmarshal(data, &words)
-	data, err = os.ReadFile(filepath.Join(dir, "zh", "texts.json"))
-	if err != nil { log.Fatalf("zh/texts.json: %v", err) }
-	json.Unmarshal(data, &chinese)
-	log.Printf("Loaded %d English words, %d Chinese texts", len(words), len(chinese))
+func readJSON(path string, v any) error {
+	mu.RLock()
+	defer mu.RUnlock()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			os.WriteFile(path, []byte("[]"), 0644)
+			return json.Unmarshal([]byte("[]"), v)
+		}
+		return err
+	}
+	return json.Unmarshal(data, v)
 }
 
-func writeJSON(w http.ResponseWriter, data any) {
+func writeJSONFile(path string, v any) error {
+	mu.Lock()
+	defer mu.Unlock()
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
 }
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// ── JWT ──
+
+type Claims struct {
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+func signToken(claims Claims) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawURLEncoding.EncodeToString(mustJSON(claims))
+	sig := hmacSHA256(jwtKey, header+"."+payload)
+	return header + "." + payload + "." + sig
+}
+
+func verifyToken(token string) (*Claims, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, false
+	}
+	sig := hmacSHA256(jwtKey, parts[0]+"."+parts[1])
+	if sig != parts[2] {
+		return nil, false
+	}
+	data, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, false
+	}
+	var c Claims
+	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, false
+	}
+	return &c, true
+}
+
+func mustJSON(v any) []byte {
+	data, _ := json.Marshal(v)
+	return data
+}
+
+func hmacSHA256(key []byte, data string) string {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(data))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func getAuthUser(r *http.Request) *Claims {
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return nil
+	}
+	c, ok := verifyToken(auth[7:])
+	if !ok {
+		return nil
+	}
+	return c
+}
+
+// ── Permission helpers ──
+
+type Role string
+
+const (
+	RoleUser      Role = "user"
+	RoleAdmin     Role = "admin"
+	RoleDeveloper Role = "developer"
+)
+
+var rolePermissions = map[Role][]string{
+	RoleUser:      {"game:play", "leaderboard:view"},
+	RoleAdmin:     {"game:play", "leaderboard:view", "leaderboard:clear", "users:view", "admin:panel", "users:manage"},
+	RoleDeveloper: {"game:play", "leaderboard:view", "leaderboard:clear", "users:view", "admin:panel", "users:manage", "users:ban", "system:config", "roles:assign"},
+}
+
+func hasPermission(role Role, perm string) bool {
+	for _, p := range rolePermissions[role] {
+		if p == perm {
+			return true
+		}
+	}
+	return false
+}
+
+// ── CORS middleware ──
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-		if r.Method == "OPTIONS" { w.WriteHeader(204); return }
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(204)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<!DOCTYPE html>
-<html><head><title>TypeRush API</title>
-<meta charset="utf-8">
-<style>body{font-family:monospace;background:#1e1e2e;color:#cdd6f4;max-width:600px;margin:40px auto;padding:20px;}
-a{color:#89b4fa}h1{color:#a6e3a1}code{background:#313244;padding:2px 6px;border-radius:4px;}</style>
-<body>
-<h1>TypeRush API</h1>
-<p>Backend server is running.</p>
-<h2>Endpoints</h2>
-<ul>
-<li><code>GET /api/health</code> — Health check</li>
-<li><code>GET /api/text/english</code> — Random English text</li>
-<li><code>GET /api/text/chinese</code> — Random Chinese text</li>
-</ul>
-<p><a href="/api/health">/api/health</a></p>
-<p><a href="/api/text/english">/api/text/english</a></p>
-<p><a href="/">Frontend → http://localhost:5173/</a></p>
-</body></html>`))
+// ── Rate limiter ──
+
+type rateRecord struct {
+	count   int
+	resetAt int64
 }
 
-func englishHandler(w http.ResponseWriter, r *http.Request) {
-	const targetLen = 200
-	var selected []string
-	length := 0
-	for length < targetLen {
-		w := words[rand.Intn(len(words))]
-		selected = append(selected, w)
-		length += len(w) + 1
+var (
+	rateMu    sync.Mutex
+	rateLimit = make(map[int]*rateRecord)
+)
+
+func checkRateLimit(userID int, maxPerHour int) bool {
+	now := time.Now().UnixMilli()
+	rateMu.Lock()
+	defer rateMu.Unlock()
+	rec := rateLimit[userID]
+	if rec == nil || now > rec.resetAt {
+		rateLimit[userID] = &rateRecord{count: 1, resetAt: now + 3600000}
+		return true
 	}
-	writeJSON(w, map[string]string{"text": strings.Join(selected[:len(selected)-1], " ")})
+	if rec.count >= maxPerHour {
+		return false
+	}
+	rec.count++
+	return true
 }
 
-func chineseHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"text": chinese[rand.Intn(len(chinese))]})
+// ── Helpers ──
+
+func timeNow() string {
+	return time.Now().UTC().Format(time.RFC3339)
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"status": "ok"})
+func parseID(s string) (int, error) {
+	return strconv.Atoi(s)
 }
+
+// ── Text sanitize ──
+
+func sanitizeContent(s string) string {
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r >= 0x00 && r <= 0x08 || r == 0x0B || r == 0x0C || r >= 0x0E && r <= 0x1F {
+			return -1
+		}
+		return r
+	}, s))
+}
+
+// ── Main ──
 
 func main() {
+	dataDir = findDataDir()
+	log.Printf("Data directory: %s", dataDir)
+
 	loadData()
+	loadUsers()
+	loadResults()
+	loadEntries()
+
 	mux := http.NewServeMux()
+
+	// Health + text endpoints (existing)
 	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/text/english", englishHandler)
 	mux.HandleFunc("GET /api/text/chinese", chineseHandler)
 
-	port := os.Getenv("PORT")
-	if port == "" { port = "3001" }
+	// Auth routes
+	mux.HandleFunc("POST /api/auth/register", handleRegister)
+	mux.HandleFunc("POST /api/auth/login", handleLogin)
+	mux.HandleFunc("GET /api/auth/me", handleMe)
+	mux.HandleFunc("GET /api/auth/users", handleListUsers)
+	mux.HandleFunc("PATCH /api/auth/users/{id}/role", handleUpdateRole)
+
+	// Results routes
+	mux.HandleFunc("POST /api/results", handleCreateResult)
+	mux.HandleFunc("GET /api/results", handleGetResults)
+	mux.HandleFunc("GET /api/results/leaderboard", handleLeaderboard)
+	mux.HandleFunc("DELETE /api/results", handleClearResults)
+
+	// Entry routes
+	mux.HandleFunc("POST /api/entries", handleCreateEntry)
+	mux.HandleFunc("GET /api/entries", handleListEntries)
+	mux.HandleFunc("GET /api/entries/approved", handleApprovedEntries)
+	mux.HandleFunc("PATCH /api/entries/{id}/review", handleReviewEntry)
+
+	// Admin routes
+	mux.HandleFunc("GET /api/admin/stats", handleAdminStats)
+
+	port := getEnv("PORT", "3001")
 	log.Printf("Server starting on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, cors(mux)))
 }

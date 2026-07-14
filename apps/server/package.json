@@ -2,24 +2,9 @@
   "name": "server",
   "private": true,
   "version": "0.0.1",
-  "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
-  },
-  "dependencies": {
-    "@fastify/cors": "^9.0.1",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "bcryptjs": "^3.0.3",
-    "fastify": "^4.28.0",
-    "jsonwebtoken": "^9.0.3",
-    "socket.io": "^4.7.5",
-    "tsx": "^4.23.1"
-  },
-  "devDependencies": {
-    "@types/node": "^20.14.0",
-    "typescript": "^5.5.0"
+    "dev": "go run ./cmd/server",
+    "build": "go build -o server.exe ./cmd/server",
+    "start": ".\server.exe"
   }
 }
