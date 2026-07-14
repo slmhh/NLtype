@@ -2,7 +2,7 @@ import type { GameMode, Language } from "./game";
 
 export interface GameResult {
   id: string;
-  timestamp: number;
+  createdAt: string;
   mode: GameMode;
   language: Language;
   wpm: number;
@@ -16,6 +16,7 @@ export interface GameResult {
 
 export interface LeaderboardEntry {
   rank: number;
+  username: string;
   wpm: number;
   accuracy: number;
   modeLabel: string;

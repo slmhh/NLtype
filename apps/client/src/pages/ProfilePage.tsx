@@ -112,7 +112,7 @@ export default function ProfilePage() {
                   key={r.id}
                   className="grid grid-cols-[auto_auto_auto_auto_auto] gap-0 text-sm px-2 py-2.5 border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-alt)] transition-colors"
                 >
-                  <span className="w-20 text-[var(--text-tertiary)] text-xs font-mono">{new Date(r.timestamp).toLocaleDateString("zh-CN")}</span>
+                  <span className="w-20 text-[var(--text-tertiary)] text-xs font-mono">{new Date(r.createdAt).toLocaleDateString("zh-CN")}</span>
                   <span className="w-12 text-right text-[var(--text-primary)] font-mono font-semibold tabular-nums">{r.wpm}</span>
                   <span className="w-14 text-right text-[var(--text-secondary)] font-mono tabular-nums">{r.accuracy}%</span>
                   <span className="w-12 text-right text-[var(--text-tertiary)] text-xs">{MODE_LABEL[r.mode] ?? r.mode}</span>

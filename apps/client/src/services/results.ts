@@ -25,7 +25,7 @@ const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
 function toGameResult(r: any): GameResult {
   return {
     id: String(r.id),
-    timestamp: new Date(r.createdAt || r.timestamp).getTime(),
+    createdAt: r.createdAt || new Date(r.timestamp).toISOString(),
     mode: r.mode,
     language: r.language,
     wpm: r.wpm,
@@ -41,7 +41,7 @@ function toGameResult(r: any): GameResult {
 /** Save a result — uses server API when authenticated, localStorage fallback */
 export async function saveResult(
   config: GameConfig,
-  stats: Omit<GameResult, "id" | "timestamp" | "mode" | "language" | "durationSec"> & { durationSec: number },
+  stats: Omit<GameResult, "id" | "createdAt" | "mode" | "language" | "durationSec"> & { durationSec: number },
   token?: string | null,
 ): Promise<GameResult> {
   if (token) {
@@ -66,7 +66,7 @@ export async function saveResult(
   // localStorage fallback
   const result: GameResult = {
     id: uid(),
-    timestamp: Date.now(),
+    createdAt: new Date().toISOString(),
     mode: config.mode,
     language: config.language,
     durationSec: stats.durationSec,
@@ -91,26 +91,25 @@ export async function getResults(token?: string | null): Promise<GameResult[]> {
 }
 
 /** Get global leaderboard */
-export async function getLeaderboard(limit = 20, token?: string | null): Promise<LeaderboardEntry[]> {
-  if (token) {
-    try {
-      const data = await api<{ entries: LeaderboardEntry[] }>(`/api/results/leaderboard?limit=${limit}`);
-      return data.entries;
-    } catch {
-      // fall through to local
-    }
+export async function getLeaderboard(limit = 20, _token?: string | null): Promise<LeaderboardEntry[]> {
+  try {
+    const data = await api<{ entries: LeaderboardEntry[] }>(`/api/results/leaderboard?limit=${limit}`);
+    return data.entries;
+  } catch {
+    // fall through to local
   }
 
-  // localStorage fallback (also returned when not authenticated)
+  // localStorage fallback
   const all = localResults();
   const sorted = [...all].sort((a, b) => b.wpm - a.wpm).slice(0, limit);
   return sorted.map((r, i) => ({
     rank: i + 1,
+    username: "",
     wpm: r.wpm,
     accuracy: r.accuracy,
     modeLabel: MODE_LABEL[r.mode] ?? r.mode,
     langLabel: LANG_LABEL[r.language] ?? r.language,
-    date: new Date(r.timestamp).toLocaleDateString(),
+    date: new Date(r.createdAt).toLocaleDateString(),
   }));
 }
 

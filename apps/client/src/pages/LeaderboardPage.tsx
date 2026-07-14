@@ -54,7 +54,7 @@ export default function LeaderboardPage() {
                   className="grid grid-cols-[3rem_1fr_auto_auto_auto] gap-0 text-sm px-5 py-3 border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-alt)] transition-colors"
                 >
                   <span className="text-[var(--text-tertiary)] font-mono">{e.rank}</span>
-                  <span className="text-[var(--text-primary)] font-mono">{(e as any).username || "—"}</span>
+                  <span className="text-[var(--text-primary)] font-mono">{e.username || "—"}</span>
                   <span className="text-[var(--text-primary)] font-mono font-semibold text-right tabular-nums">{e.wpm}</span>
                   <span className="text-[var(--text-secondary)] font-mono text-right tabular-nums">{e.accuracy}%</span>
                   <span className="text-[var(--text-tertiary)] text-xs text-right">{e.modeLabel}</span>
