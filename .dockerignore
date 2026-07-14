@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+dist
+*.exe
+apps/client/node_modules
+apps/server/node_modules
+apps/server/data/*.db
+apps/server/data/users.json
+apps/server/data/results.json
+apps/server/data/entries.json
+.tools
+AGENTS.md

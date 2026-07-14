@@ -1,0 +1,13 @@
+services:
+  nltype:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - nltype-data:/app/data
+    environment:
+      - JWT_SECRET=change-this-in-production
+    restart: unless-stopped
+
+volumes:
+  nltype-data:

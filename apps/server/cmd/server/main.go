@@ -17,6 +17,7 @@ import (
 
 var (
 	dataDir string
+	distDir string
 	jwtKey  = []byte(getEnv("JWT_SECRET", "dev-secret-change-in-production"))
 	mu      sync.RWMutex
 )
@@ -155,16 +156,19 @@ func hasPermission(role Role, perm string) bool {
 	return false
 }
 
-// ── CORS middleware ──
+// ── CORS middleware (dev only; in production frontend is served from same origin) ──
 
 func cors(next http.Handler) http.Handler {
+	origin := getEnv("CORS_ORIGIN", "")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(204)
-			return
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(204)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -221,9 +225,25 @@ func parseID(s string) (int, error) {
 
 // ── Main ──
 
+func spaFileServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+	path := filepath.Join(distDir, r.URL.Path)
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, path)
+		return
+	}
+	// SPA fallback: serve index.html for client-side routing
+	http.ServeFile(w, r, filepath.Join(distDir, "index.html"))
+}
+
 func main() {
 	dataDir = findDataDir()
+	distDir = getEnv("STATIC_DIR", "./dist")
 	log.Printf("Data directory: %s", dataDir)
+	log.Printf("Static directory: %s", distDir)
 
 	if err := initDB(dataDir); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -234,7 +254,6 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/text/english", englishHandler)
 	mux.HandleFunc("GET /api/text/chinese", chineseHandler)
@@ -257,6 +276,9 @@ func main() {
 	mux.HandleFunc("PATCH /api/entries/{id}/review", handleReviewEntry)
 
 	mux.HandleFunc("GET /api/admin/stats", handleAdminStats)
+
+	// SPA fallback for all non-API routes
+	mux.HandleFunc("/", spaFileServer)
 
 	port := getEnv("PORT", "3001")
 	log.Printf("Server starting on :%s", port)
