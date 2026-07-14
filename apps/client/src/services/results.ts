@@ -1,25 +1,69 @@
-import { useCallback, useRef, useState } from "react";
 import type { GameResult, LeaderboardEntry } from "../types/results";
 import type { GameConfig } from "../types/game";
 import { load, save } from "./storage";
+import { api } from "./api";
 
-const KEY = "results";
+const LOCAL_KEY = "results";
 
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-export function getResults(): GameResult[] {
-  return load<GameResult[]>(KEY, []);
+function localResults(): GameResult[] {
+  return load<GameResult[]>(LOCAL_KEY, []);
 }
 
-function pushResult(r: GameResult) {
-  const all = getResults();
+function pushLocal(r: GameResult) {
+  const all = localResults();
   all.unshift(r);
-  save(KEY, all);
+  save(LOCAL_KEY, all);
 }
 
-export function saveResult(config: GameConfig, stats: Omit<GameResult, "id" | "timestamp" | "mode" | "language" | "durationSec"> & { durationSec: number }): GameResult {
+const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
+const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
+
+function toGameResult(r: any): GameResult {
+  return {
+    id: String(r.id),
+    timestamp: new Date(r.createdAt || r.timestamp).getTime(),
+    mode: r.mode,
+    language: r.language,
+    wpm: r.wpm,
+    accuracy: r.accuracy,
+    cpm: r.cpm,
+    rawWpm: r.rawWpm,
+    correctCount: r.correctCount,
+    incorrectCount: r.incorrectCount,
+    durationSec: r.durationSec,
+  };
+}
+
+/** Save a result — uses server API when authenticated, localStorage fallback */
+export async function saveResult(
+  config: GameConfig,
+  stats: Omit<GameResult, "id" | "timestamp" | "mode" | "language" | "durationSec"> & { durationSec: number },
+  token?: string | null,
+): Promise<GameResult> {
+  if (token) {
+    const data = await api<{ result: any }>("/api/results", {
+      method: "POST",
+      body: {
+        mode: config.mode,
+        language: config.language,
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
+        cpm: stats.cpm,
+        rawWpm: stats.rawWpm,
+        correctCount: stats.correctCount,
+        incorrectCount: stats.incorrectCount,
+        durationSec: stats.durationSec,
+      },
+      token,
+    });
+    return toGameResult(data.result);
+  }
+
+  // localStorage fallback
   const result: GameResult = {
     id: uid(),
     timestamp: Date.now(),
@@ -33,41 +77,48 @@ export function saveResult(config: GameConfig, stats: Omit<GameResult, "id" | "t
     correctCount: stats.correctCount,
     incorrectCount: stats.incorrectCount,
   };
-  pushResult(result);
+  pushLocal(result);
   return result;
 }
 
-export function clearResults() {
-  save(KEY, []);
+/** Get results for the current user */
+export async function getResults(token?: string | null): Promise<GameResult[]> {
+  if (token) {
+    const data = await api<{ results: any[] }>("/api/results", { token });
+    return data.results.map(toGameResult);
+  }
+  return localResults();
 }
 
-export function getLeaderboard(limit = 20): LeaderboardEntry[] {
-  const all = getResults();
+/** Get global leaderboard */
+export async function getLeaderboard(limit = 20, token?: string | null): Promise<LeaderboardEntry[]> {
+  if (token) {
+    try {
+      const data = await api<{ entries: LeaderboardEntry[] }>(`/api/results/leaderboard?limit=${limit}`);
+      return data.entries;
+    } catch {
+      // fall through to local
+    }
+  }
+
+  // localStorage fallback (also returned when not authenticated)
+  const all = localResults();
   const sorted = [...all].sort((a, b) => b.wpm - a.wpm).slice(0, limit);
   return sorted.map((r, i) => ({
     rank: i + 1,
     wpm: r.wpm,
     accuracy: r.accuracy,
-    modeLabel: modeLabel(r.mode),
-    langLabel: r.language === "en" ? "EN" : "ZH",
+    modeLabel: MODE_LABEL[r.mode] ?? r.mode,
+    langLabel: LANG_LABEL[r.language] ?? r.language,
     date: new Date(r.timestamp).toLocaleDateString(),
   }));
 }
 
-function modeLabel(m: GameResult["mode"]) {
-  const map: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
-  return map[m] ?? m;
-}
-
-export function useResults() {
-  const [results, setResults] = useState<GameResult[]>(() => getResults());
-  const savedRef = useRef(false);
-
-  const add = useCallback((config: GameConfig, stats: Omit<GameResult, "id" | "timestamp" | "mode" | "language" | "durationSec"> & { durationSec: number }) => {
-    const r = saveResult(config, stats);
-    setResults((prev) => [r, ...prev]);
-    savedRef.current = true;
-  }, []);
-
-  return { results, add, saved: savedRef.current };
+/** Clear results — uses API when authenticated, localStorage otherwise */
+export async function clearResults(token?: string | null): Promise<void> {
+  if (token) {
+    await api("/api/results", { method: "DELETE", token });
+    return;
+  }
+  save(LOCAL_KEY, []);
 }

@@ -4,6 +4,7 @@ import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { TypingDisplay } from "./TypingDisplay";
 import type { GameConfig, Language } from "../types/game";
+import { useAuth } from "../context/AuthContext";
 import { saveResult } from "../services/results";
 
 interface TypingGameProps {
@@ -16,6 +17,7 @@ interface TypingGameProps {
 }
 
 export default function TypingGame({ text, language, timeLimit, gameConfig, onRetry, onBack }: TypingGameProps) {
+  const { token } = useAuth();
   const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -64,9 +66,9 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         correctCount: typingState.correctCount,
         incorrectCount: typingState.incorrectCount,
         durationSec: Math.round(typingState.elapsedMs / 1000),
-      });
+      }, token);
     }
-  }, [phase, typingState, gameConfig]);
+  }, [phase, typingState, gameConfig, token]);
 
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;

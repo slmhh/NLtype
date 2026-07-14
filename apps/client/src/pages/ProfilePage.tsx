@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getResults } from "../services/results";
 import type { GameResult } from "../types/results";
@@ -8,8 +8,14 @@ const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", qu
 const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
 
 export default function ProfilePage() {
-  const { user } = useAuth();
-  const results = useMemo(() => getResults(), []);
+  const { user, token } = useAuth();
+  const [results, setResults] = useState<GameResult[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    getResults(token).then((r) => { setResults(r); setLoading(false); });
+  }, [user, token]);
 
   const stats = useMemo(() => {
     if (results.length === 0) return null;
@@ -28,6 +34,14 @@ export default function ProfilePage() {
     return (
       <div className="flex flex-col items-center pt-20 px-4 select-none">
         <p className="text-[var(--text-tertiary)] text-sm tracking-wider">请先登录</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center pt-20 px-4 select-none">
+        <p className="text-[var(--text-tertiary)] text-sm tracking-wider">加载中...</p>
       </div>
     );
   }
