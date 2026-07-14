@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal, Statistic, Tag } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { TypingDisplay } from "./TypingDisplay";
+import { WpmChart } from "./WpmChart";
 import type { GameConfig, Language } from "../types/game";
 import { useAuth } from "../context/AuthContext";
 import { saveResult } from "../services/results";
@@ -16,12 +18,17 @@ interface TypingGameProps {
   onBack: () => void;
 }
 
+const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
+const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
+
 export default function TypingGame({ text, language, timeLimit, gameConfig, onRetry, onBack }: TypingGameProps) {
   const { token } = useAuth();
   const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasTimer = timeLimit > 0;
+
+  useKeyboardShortcuts({ Tab: onRetry, Escape: onBack }, phase === "finished" && showResult);
 
   const onTimeUp = useCallback(() => {
     setPhase("finished");
@@ -70,6 +77,12 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
     }
   }, [phase, typingState, gameConfig, token]);
 
+  const peakWpm = useMemo(() => Math.max(...typingState.wpmHistory, typingState.wpm), [typingState.wpmHistory, typingState.wpm]);
+  const avgWpm = useMemo(() => {
+    const all = [...typingState.wpmHistory, typingState.wpm].filter(Boolean);
+    return all.length > 0 ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
+  }, [typingState.wpmHistory, typingState.wpm]);
+
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;
 
@@ -83,20 +96,16 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
 
   return (
     <div className="flex flex-col items-center pt-8 px-4 pb-16 select-none">
-      {/* Hidden textarea for IME */}
       <textarea ref={inputRef} className="absolute opacity-0 w-0 h-0 -z-10" autoFocus />
 
-      {/* Back link */}
       <button onClick={onBack} className="self-start mb-4 ml-4 text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--text-secondary)] transition-colors">
         ← 返回
       </button>
 
-      {/* Game card */}
       <div
         className="w-full max-w-[780px] bg-card rounded-2xl shadow-card overflow-hidden transition-colors"
         onClick={() => inputRef.current?.focus()}
       >
-        {/* Timer area */}
         {hasTimer && (
           <div className="px-6 pt-5 pb-2 flex items-center justify-between">
             <span className={`text-3xl font-bold font-mono tracking-wider transition-colors ${
@@ -104,11 +113,10 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
             }`}>
               {timerLabel}
             </span>
-            <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{language === "en" ? "EN" : language === "zh" ? "ZH" : "Code"}</span>
+            <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{LANG_LABEL[language] ?? language}</span>
           </div>
         )}
 
-        {/* Text display */}
         <div className="px-6 py-4">
           {phase === "playing" && (
             <TypingDisplay
@@ -119,7 +127,6 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
           )}
         </div>
 
-        {/* Progress bar */}
         <div className="h-[2px] bg-[var(--border)] mx-6 mb-5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-300 ease-out"
@@ -131,7 +138,6 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         </div>
       </div>
 
-      {/* Stats bar */}
       {phase === "playing" && (
         <div className="w-full max-w-[780px] grid grid-cols-4 gap-0 mt-5">
           <StatBlock label="wpm" value={String(typingState.wpm)} />
@@ -141,7 +147,6 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         </div>
       )}
 
-      {/* Result Modal */}
       <Modal
         visible={showResult}
         onCancel={onBack}
@@ -150,12 +155,15 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         maskClosable={false}
         escToExit={false}
         alignCenter
-        style={{ maxWidth: 380 }}
+        style={{ maxWidth: 460 }}
         className="!rounded-3xl"
       >
         <div className="text-center pt-4 pb-2">
-          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-6">
+          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">
             result
+          </p>
+          <p className="text-[var(--text-tertiary)] text-xs mb-4">
+            {MODE_LABEL[gameConfig.mode] ?? gameConfig.mode} · {LANG_LABEL[language] ?? language}
           </p>
 
           <Statistic
@@ -167,26 +175,40 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
             className="[&_.arco-statistic-title]:!text-[var(--text-tertiary)] [&_.arco-statistic-title]:!tracking-[0.2em] [&_.arco-statistic-title]:!text-xs [&_.arco-statistic-value]:!text-7xl [&_.arco-statistic-value]:!font-bold [&_.arco-statistic-value]:!font-mono [&_.arco-statistic-value]:!text-[var(--accent)]"
           />
 
-          <div className="grid grid-cols-3 gap-2 my-6">
+          <div className="grid grid-cols-4 gap-2 my-5">
+            <MiniStat label="peak" value={String(peakWpm)} />
+            <MiniStat label="avg" value={String(avgWpm)} />
             <MiniStat label="accuracy" value={`${typingState.accuracy}%`} />
             <MiniStat label="cpm" value={String(typingState.cpm)} />
-            <MiniStat label="raw" value={String(typingState.rawWpm)} />
           </div>
 
-          <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="flex items-center justify-center gap-3 mb-5">
             <Tag color="green" bordered>✓ {typingState.correctCount}</Tag>
             <span className="text-[var(--text-tertiary)]">·</span>
             <Tag color="red" bordered>✗ {typingState.incorrectCount}</Tag>
+            <span className="text-[var(--text-tertiary)]">·</span>
+            <Tag bordered color="default">{typingState.rawWpm} raw</Tag>
+          </div>
+
+          {typingState.wpmHistory.length > 1 && (
+            <div className="mb-5 px-2">
+              <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">速度曲线</p>
+              <WpmChart data={typingState.wpmHistory} currentWpm={typingState.wpm} />
+            </div>
+          )}
+
+          <div className="text-[var(--text-tertiary)] text-xs mb-5">
+            用时 {Math.floor(typingState.elapsedMs / 60000)}分{Math.floor((typingState.elapsedMs % 60000) / 1000)}秒
           </div>
 
           <div className="flex gap-2.5">
             <Button type="primary" long onClick={onRetry}
               className="!rounded-xl !text-sm !tracking-wider !uppercase !font-semibold !h-11">
-              再来一局
+              再来一局 <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Tab</span>
             </Button>
             <Button type="outline" long onClick={onBack}
               className="!rounded-xl !text-sm !tracking-wider !uppercase !h-11">
-              返回大厅
+              返回大厅 <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Esc</span>
             </Button>
           </div>
         </div>

@@ -17,6 +17,7 @@ export interface TypingState {
   rawWpm: number;
   elapsedMs: number;
   isFinished: boolean;
+  wpmHistory: number[];
 }
 
 interface UseTypingEngineOptions {
@@ -38,6 +39,7 @@ function initState(text: string): TypingState {
     rawWpm: 0,
     elapsedMs: 0,
     isFinished: false,
+    wpmHistory: [],
   };
 }
 
@@ -115,6 +117,7 @@ export function useTypingEngine({
           incorrectCount: newIncorrect,
           elapsedMs: elapsed,
           ...stats,
+          wpmHistory: [...prev.wpmHistory, stats.wpm],
           isFinished: finished,
         };
       });
@@ -200,7 +203,7 @@ export function useTypingEngine({
         if (prev.isFinished) return prev;
         const elapsed = getElapsed();
         const stats = deriveStats(prev.correctCount, prev.incorrectCount, elapsed);
-        return { ...prev, elapsedMs: elapsed, ...stats };
+        return { ...prev, elapsedMs: elapsed, ...stats, wpmHistory: [...prev.wpmHistory, stats.wpm] };
       });
     }, 250);
     return () => clearInterval(id);
