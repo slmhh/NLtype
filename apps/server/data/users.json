@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "id": 1,
+    "username": "nai",
+    "email": "nai@nltype.dev",
+    "passwordHash": "$2b$12$IfB5Z3AeOzRuGJ6LFy84pe5WheKP0wPQRYWgpzy7xHlyPaACgB49m",
+    "role": "developer",
+    "createdAt": "2026-07-14T00:00:00.000Z"
+  }
+]

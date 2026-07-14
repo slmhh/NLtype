@@ -55,3 +55,6 @@ apps/server/dist/
 
 # ── Temp scripts ──
 scripts/
+
+# ── Server data (user accounts, results) ──
+apps/server/data/

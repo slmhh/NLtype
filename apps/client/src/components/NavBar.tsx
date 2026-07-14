@@ -39,6 +39,11 @@ export default function NavBar() {
           <NavLink to="/admin" className="no-underline text-inherit">管理面板</NavLink>
         </Menu.Item>
       </PermissionGuard>
+      <PermissionGuard permission="roles:assign">
+        <Menu.Item key="developer">
+          <NavLink to="/developer" className="no-underline text-inherit">开发者面板</NavLink>
+        </Menu.Item>
+      </PermissionGuard>
       <Menu.Item key="logout" style={{ color: "var(--color-text-3)" }}>退出登录</Menu.Item>
     </Menu>
   );
@@ -63,6 +68,11 @@ export default function NavBar() {
         <PermissionGuard permission="admin:panel">
           <NavLink to="/admin" className="no-underline">
             {({ isActive }) => <span className={navLinkClass(isActive)}>管理</span>}
+          </NavLink>
+        </PermissionGuard>
+        <PermissionGuard permission="roles:assign">
+          <NavLink to="/developer" className="no-underline">
+            {({ isActive }) => <span className={navLinkClass(isActive)}>开发者</span>}
           </NavLink>
         </PermissionGuard>
       </div>

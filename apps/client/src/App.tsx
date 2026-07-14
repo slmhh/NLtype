@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import AdminPage from "./pages/AdminPage";
+import DeveloperPage from "./pages/DeveloperPage";
 import ProfilePage from "./pages/ProfilePage";
 
 function AppLayout() {
@@ -34,6 +35,7 @@ export default function App() {
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/game" element={<GamePage />} />
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/developer" element={<DeveloperPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Route>
               </Routes>
