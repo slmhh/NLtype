@@ -43,7 +43,6 @@ func findDataDir() string {
 			return abs
 		}
 	}
-	// Fall back to create data/ alongside the binary
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 	return dataDir
@@ -61,16 +60,6 @@ func readJSON(path string, v any) error {
 		return err
 	}
 	return json.Unmarshal(data, v)
-}
-
-func writeJSONFile(path string, v any) error {
-	mu.Lock()
-	defer mu.Unlock()
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0644)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -209,16 +198,6 @@ func checkRateLimit(userID int, maxPerHour int) bool {
 	return true
 }
 
-// ── Helpers ──
-
-func timeNow() string {
-	return time.Now().UTC().Format(time.RFC3339)
-}
-
-func parseID(s string) (int, error) {
-	return strconv.Atoi(s)
-}
-
 // ── Text sanitize ──
 
 func sanitizeContent(s string) string {
@@ -230,45 +209,52 @@ func sanitizeContent(s string) string {
 	}, s))
 }
 
+// ── Helpers ──
+
+func timeNow() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func parseID(s string) (int, error) {
+	return strconv.Atoi(s)
+}
+
 // ── Main ──
 
 func main() {
 	dataDir = findDataDir()
 	log.Printf("Data directory: %s", dataDir)
 
+	if err := initDB(dataDir); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	log.Println("Database initialized")
+
 	loadData()
-	loadUsers()
-	loadResults()
-	loadEntries()
 
 	mux := http.NewServeMux()
 
-	// Health + text endpoints (existing)
 	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/text/english", englishHandler)
 	mux.HandleFunc("GET /api/text/chinese", chineseHandler)
 
-	// Auth routes
 	mux.HandleFunc("POST /api/auth/register", handleRegister)
 	mux.HandleFunc("POST /api/auth/login", handleLogin)
 	mux.HandleFunc("GET /api/auth/me", handleMe)
 	mux.HandleFunc("GET /api/auth/users", handleListUsers)
 	mux.HandleFunc("PATCH /api/auth/users/{id}/role", handleUpdateRole)
 
-	// Results routes
 	mux.HandleFunc("POST /api/results", handleCreateResult)
 	mux.HandleFunc("GET /api/results", handleGetResults)
 	mux.HandleFunc("GET /api/results/leaderboard", handleLeaderboard)
 	mux.HandleFunc("DELETE /api/results", handleClearResults)
 
-	// Entry routes
 	mux.HandleFunc("POST /api/entries", handleCreateEntry)
 	mux.HandleFunc("GET /api/entries", handleListEntries)
 	mux.HandleFunc("GET /api/entries/approved", handleApprovedEntries)
 	mux.HandleFunc("PATCH /api/entries/{id}/review", handleReviewEntry)
 
-	// Admin routes
 	mux.HandleFunc("GET /api/admin/stats", handleAdminStats)
 
 	port := getEnv("PORT", "3001")

@@ -1,9 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"regexp"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,7 +13,7 @@ type User struct {
 	ID           int    `json:"id"`
 	Username     string `json:"username"`
 	Email        string `json:"email"`
-	PasswordHash string `json:"passwordHash"`
+	PasswordHash string `json:"-"`
 	Role         Role   `json:"role"`
 	CreatedAt    string `json:"createdAt"`
 }
@@ -27,26 +27,8 @@ type UserPublic struct {
 	CreatedAt   string   `json:"createdAt"`
 }
 
-var users []User
-var nextUserID = 1
-var usersPath string
-
 var emailRE = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 var usernameRE = regexp.MustCompile(`^[a-zA-Z0-9_]{3,20}$`)
-
-func loadUsers() {
-	usersPath = filepath.Join(dataDir, "users.json")
-	readJSON(usersPath, &users)
-	for _, u := range users {
-		if u.ID >= nextUserID {
-			nextUserID = u.ID + 1
-		}
-	}
-}
-
-func saveUsers() {
-	writeJSONFile(usersPath, users)
-}
 
 func toPublic(u User) UserPublic {
 	return UserPublic{
@@ -60,13 +42,12 @@ func toPublic(u User) UserPublic {
 }
 
 func registerUser(username, email, password string) (UserPublic, string, error) {
-	for _, u := range users {
-		if u.Username == username {
-			return UserPublic{}, "", errUserTaken
-		}
-		if u.Email == email {
-			return UserPublic{}, "", errEmailTaken
-		}
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+
+	role := RoleUser
+	if count == 0 {
+		role = RoleDeveloper
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -74,62 +55,113 @@ func registerUser(username, email, password string) (UserPublic, string, error) 
 		return UserPublic{}, "", err
 	}
 
-	role := RoleUser
-	if len(users) == 0 {
-		role = RoleDeveloper
+	var id int
+	created := nowISO()
+	err = db.QueryRow(
+		"INSERT INTO users (username, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
+		username, email, string(hash), string(role), created,
+	).Scan(&id)
+	if err != nil {
+		if isUniqueErr(err) {
+			dup := duplicateField(err, username, email)
+			return UserPublic{}, "", dup
+		}
+		return UserPublic{}, "", err
 	}
 
-	u := User{
-		ID:           nextUserID,
-		Username:     username,
-		Email:        email,
-		PasswordHash: string(hash),
-		Role:         role,
-		CreatedAt:    timeNow(),
+	pub := UserPublic{
+		ID:          id,
+		Username:    username,
+		Email:       email,
+		Role:        role,
+		Permissions: rolePermissions[role],
+		CreatedAt:   created,
 	}
-	nextUserID++
-	users = append(users, u)
-	saveUsers()
+	token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})
+	return pub, token, nil
+}
+
+func loginUser(identifier, password string) (UserPublic, string, error) {
+	var u User
+	err := db.QueryRow(
+		"SELECT id, username, email, password_hash, role, created_at FROM users WHERE username = ? OR email = ?",
+		identifier, identifier,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return UserPublic{}, "", errInvalidCreds
+	}
+	if err != nil {
+		return UserPublic{}, "", err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
+		return UserPublic{}, "", errInvalidCreds
+	}
 
 	pub := toPublic(u)
 	token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})
 	return pub, token, nil
 }
 
-func loginUser(identifier, password string) (UserPublic, string, error) {
-	for _, u := range users {
-		if u.Username == identifier || u.Email == identifier {
-			if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
-				return UserPublic{}, "", errInvalidCreds
-			}
-			pub := toPublic(u)
-			token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})
-			return pub, token, nil
-		}
-	}
-	return UserPublic{}, "", errInvalidCreds
-}
-
 func findUserByID(id int) *UserPublic {
-	for _, u := range users {
-		if u.ID == id {
-			pub := toPublic(u)
-			return &pub
-		}
+	var u User
+	err := db.QueryRow(
+		"SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = ?", id,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+	if err != nil {
+		return nil
 	}
-	return nil
+	pub := toPublic(u)
+	return &pub
 }
 
 func updateUserRole(targetID int, newRole Role) *UserPublic {
-	for i := range users {
-		if users[i].ID == targetID {
-			users[i].Role = newRole
-			saveUsers()
-			pub := toPublic(users[i])
-			return &pub
-		}
+	_, err := db.Exec("UPDATE users SET role = ? WHERE id = ?", string(newRole), targetID)
+	if err != nil {
+		return nil
 	}
-	return nil
+	return findUserByID(targetID)
+}
+
+func listAllUsers() []UserPublic {
+	rows, err := db.Query("SELECT id, username, email, role, created_at FROM users ORDER BY id")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var result []UserPublic
+	for rows.Next() {
+		var u UserPublic
+		var roleStr string
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &roleStr, &u.CreatedAt); err != nil {
+			continue
+		}
+		u.Role = Role(roleStr)
+		u.Permissions = rolePermissions[u.Role]
+		result = append(result, u)
+	}
+	if result == nil {
+		result = []UserPublic{}
+	}
+	return result
+}
+
+// ── Unique constraint helpers ──
+
+func isUniqueErr(err error) bool {
+	return err != nil && (contains(err.Error(), "UNIQUE") || contains(err.Error(), "unique"))
+}
+
+func duplicateField(err error, username, email string) error {
+	if contains(err.Error(), "username") {
+		return errUserTaken
+	}
+	return errEmailTaken
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && (s[:len(sub)] == sub || contains(s[1:], sub)))
 }
 
 var errUserTaken = &appErr{"USERNAME_TAKEN"}
@@ -139,6 +171,8 @@ var errInvalidCreds = &appErr{"INVALID_CREDENTIALS"}
 type appErr struct{ msg string }
 
 func (e *appErr) Error() string { return e.msg }
+
+// ── Handlers ──
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -230,11 +264,7 @@ func handleListUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 403, "Insufficient permissions")
 		return
 	}
-	pubUsers := make([]UserPublic, len(users))
-	for i, u := range users {
-		pubUsers[i] = toPublic(u)
-	}
-	writeJSON(w, 200, map[string]any{"users": pubUsers})
+	writeJSON(w, 200, map[string]any{"users": listAllUsers()})
 }
 
 func handleUpdateRole(w http.ResponseWriter, r *http.Request) {
@@ -244,8 +274,7 @@ func handleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := r.PathValue("id")
-	targetID, err := parseID(idStr)
+	targetID, err := parseID(r.PathValue("id"))
 	if err != nil {
 		writeError(w, 400, "Invalid user ID")
 		return

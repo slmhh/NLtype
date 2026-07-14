@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// ── Existing text endpoints ──
+// ── Legacy text endpoints ──
 
 var words []string
 var chinese []string
@@ -75,31 +75,43 @@ func handleAdminStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	modeCount := make(map[string]int)
-	langCount := make(map[string]int)
-	var totalWPM, topWPM int
+	var stats Stats
 
-	for _, res := range results {
-		modeCount[res.Mode]++
-		langCount[res.Language]++
-		totalWPM += res.WPM
-		if res.WPM > topWPM {
-			topWPM = res.WPM
+	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&stats.TotalUsers)
+	db.QueryRow("SELECT COUNT(*) FROM results").Scan(&stats.TotalResults)
+
+	// Mode distribution
+	if rows, err := db.Query("SELECT mode, COUNT(*) FROM results GROUP BY mode"); err == nil {
+		defer rows.Close()
+		stats.ResultsByMode = make(map[string]int)
+		for rows.Next() {
+			var mode string
+			var count int
+			rows.Scan(&mode, &count)
+			stats.ResultsByMode[mode] = count
 		}
 	}
-
-	avgWPM := 0
-	if len(results) > 0 {
-		avgWPM = totalWPM / len(results)
+	if stats.ResultsByMode == nil {
+		stats.ResultsByMode = map[string]int{}
 	}
 
-	stats := Stats{
-		TotalUsers:    len(users),
-		TotalResults:  len(results),
-		ResultsByMode: modeCount,
-		ResultsByLang: langCount,
-		TopWPM:        topWPM,
-		AvgWPM:        avgWPM,
+	// Language distribution
+	if rows, err := db.Query("SELECT language, COUNT(*) FROM results GROUP BY language"); err == nil {
+		defer rows.Close()
+		stats.ResultsByLang = make(map[string]int)
+		for rows.Next() {
+			var lang string
+			var count int
+			rows.Scan(&lang, &count)
+			stats.ResultsByLang[lang] = count
+		}
 	}
+	if stats.ResultsByLang == nil {
+		stats.ResultsByLang = map[string]int{}
+	}
+
+	db.QueryRow("SELECT COALESCE(MAX(wpm), 0) FROM results").Scan(&stats.TopWPM)
+	db.QueryRow("SELECT COALESCE(ROUND(AVG(wpm)), 0) FROM results").Scan(&stats.AvgWPM)
+
 	writeJSON(w, 200, map[string]any{"stats": stats})
 }

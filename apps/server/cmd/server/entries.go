@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"strconv"
 )
 
@@ -17,24 +16,6 @@ type WordEntry struct {
 	CreatedAt  string `json:"createdAt"`
 	ReviewedAt string `json:"reviewedAt,omitempty"`
 	ReviewedBy int    `json:"reviewedBy,omitempty"`
-}
-
-var entries []WordEntry
-var nextEntryID = 1
-var entriesPath string
-
-func loadEntries() {
-	entriesPath = filepath.Join(dataDir, "entries.json")
-	readJSON(entriesPath, &entries)
-	for _, e := range entries {
-		if e.ID >= nextEntryID {
-			nextEntryID = e.ID + 1
-		}
-	}
-}
-
-func saveEntries() {
-	writeJSONFile(entriesPath, entries)
 }
 
 // ── Handlers ──
@@ -77,29 +58,37 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := "pending"
+	reviewedAt := ""
+	reviewedBy := 0
 	if claims.Role == "developer" {
 		status = "approved"
+		reviewedAt = nowISO()
+		reviewedBy = claims.ID
+	}
+
+	created := nowISO()
+	var id int
+	err := db.QueryRow(
+		`INSERT INTO entries (user_id, username, language, content, status, created_at, reviewed_at, reviewed_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		claims.ID, claims.Username, body.Language, sanitized, status, created, nullStr(reviewedAt), nullInt(reviewedBy),
+	).Scan(&id)
+	if err != nil {
+		writeError(w, 500, "Failed to create entry")
+		return
 	}
 
 	entry := WordEntry{
-		ID:        nextEntryID,
-		UserID:    claims.ID,
-		Username:  claims.Username,
-		Language:  body.Language,
-		Content:   sanitized,
-		Status:    status,
-		CreatedAt: timeNow(),
+		ID:         id,
+		UserID:     claims.ID,
+		Username:   claims.Username,
+		Language:   body.Language,
+		Content:    sanitized,
+		Status:     status,
+		CreatedAt:  created,
+		ReviewedAt: reviewedAt,
+		ReviewedBy: reviewedBy,
 	}
-	nextEntryID++
-
-	if status == "approved" {
-		entry.ReviewedAt = timeNow()
-		entry.ReviewedBy = claims.ID
-	}
-
-	entries = append([]WordEntry{entry}, entries...)
-	saveEntries()
-
 	writeJSON(w, 201, map[string]any{"entry": entry})
 }
 
@@ -111,24 +100,46 @@ func handleListEntries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isAdmin := claims.Role == "admin" || claims.Role == "developer"
+	statusFilter := r.URL.Query().Get("status")
+	langFilter := r.URL.Query().Get("language")
 
-	var filtered []WordEntry
-	for _, e := range entries {
-		if !isAdmin && e.UserID != claims.ID {
-			continue
-		}
-		if status := r.URL.Query().Get("status"); status != "" && e.Status != status {
-			continue
-		}
-		if lang := r.URL.Query().Get("language"); lang != "" && e.Language != lang {
-			continue
-		}
-		filtered = append(filtered, e)
+	query := `SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+		FROM entries WHERE 1=1`
+	args := []any{}
+
+	if !isAdmin {
+		query += " AND user_id = ?"
+		args = append(args, claims.ID)
 	}
-	if filtered == nil {
-		filtered = []WordEntry{}
+	if statusFilter != "" {
+		query += " AND status = ?"
+		args = append(args, statusFilter)
 	}
-	writeJSON(w, 200, map[string]any{"entries": filtered})
+	if langFilter != "" {
+		query += " AND language = ?"
+		args = append(args, langFilter)
+	}
+	query += " ORDER BY id DESC"
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		writeError(w, 500, "Failed to fetch entries")
+		return
+	}
+	defer rows.Close()
+
+	var entries []WordEntry
+	for rows.Next() {
+		var e WordEntry
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+			continue
+		}
+		entries = append(entries, e)
+	}
+	if entries == nil {
+		entries = []WordEntry{}
+	}
+	writeJSON(w, 200, map[string]any{"entries": entries})
 }
 
 func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
@@ -143,14 +154,22 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	rows, err := db.Query(
+		`SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+		 FROM entries WHERE status = 'approved' AND language = ? ORDER BY id DESC LIMIT ?`, lang, limit)
+	if err != nil {
+		writeError(w, 500, "Failed to fetch entries")
+		return
+	}
+	defer rows.Close()
+
 	var approved []WordEntry
-	for _, e := range entries {
-		if e.Status == "approved" && e.Language == lang {
-			approved = append(approved, e)
-			if len(approved) >= limit {
-				break
-			}
+	for rows.Next() {
+		var e WordEntry
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+			continue
 		}
+		approved = append(approved, e)
 	}
 	if approved == nil {
 		approved = []WordEntry{}
@@ -165,8 +184,7 @@ func handleReviewEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := r.PathValue("id")
-	entryID, err := parseID(idStr)
+	entryID, err := parseID(r.PathValue("id"))
 	if err != nil {
 		writeError(w, 400, "Invalid entry ID")
 		return
@@ -184,15 +202,44 @@ func handleReviewEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range entries {
-		if entries[i].ID == entryID {
-			entries[i].Status = body.Status
-			entries[i].ReviewedAt = timeNow()
-			entries[i].ReviewedBy = claims.ID
-			saveEntries()
-			writeJSON(w, 200, map[string]any{"entry": entries[i]})
-			return
-		}
+	reviewedAt := nowISO()
+	res, err := db.Exec(
+		"UPDATE entries SET status = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?",
+		body.Status, reviewedAt, claims.ID, entryID)
+	if err != nil {
+		writeError(w, 500, "Failed to update entry")
+		return
 	}
-	writeError(w, 404, "Entry not found")
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		writeError(w, 404, "Entry not found")
+		return
+	}
+
+	// Return the updated entry
+	row := db.QueryRow(
+		`SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+		 FROM entries WHERE id = ?`, entryID)
+	var e WordEntry
+	if err := row.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+		writeError(w, 500, "Entry updated but failed to read back")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"entry": e})
+}
+
+// ── SQLite NULL helpers ──
+
+func nullStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func nullInt(n int) *int {
+	if n == 0 {
+		return nil
+	}
+	return &n
 }

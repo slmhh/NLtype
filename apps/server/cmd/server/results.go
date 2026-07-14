@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
-	"sort"
 	"strconv"
 )
 
@@ -26,30 +24,12 @@ type GameResult struct {
 
 type LeaderboardEntry struct {
 	Rank       int    `json:"rank"`
+	Username   string `json:"username"`
 	WPM        int    `json:"wpm"`
 	Accuracy   int    `json:"accuracy"`
 	ModeLabel  string `json:"modeLabel"`
 	LangLabel  string `json:"langLabel"`
 	Date       string `json:"date"`
-	Username   string `json:"username"`
-}
-
-var results []GameResult
-var nextResultID = 1
-var resultsPath string
-
-func loadResults() {
-	resultsPath = filepath.Join(dataDir, "results.json")
-	readJSON(resultsPath, &results)
-	for _, r := range results {
-		if r.ID >= nextResultID {
-			nextResultID = r.ID + 1
-		}
-	}
-}
-
-func saveResults() {
-	writeJSONFile(resultsPath, results)
 }
 
 func modeLabel(m string) string {
@@ -109,8 +89,22 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	created := nowISO()
+	var id int
+	err := db.QueryRow(
+		`INSERT INTO results (user_id, username, mode, language, wpm, accuracy, cpm, raw_wpm, correct_count, incorrect_count, duration_sec, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		claims.ID, claims.Username, body.Mode, body.Language,
+		body.WPM, body.Accuracy, body.CPM, body.RawWPM,
+		body.CorrectCount, body.IncorrectCount, body.DurationSec, created,
+	).Scan(&id)
+	if err != nil {
+		writeError(w, 500, "Failed to save result")
+		return
+	}
+
 	res := GameResult{
-		ID:             nextResultID,
+		ID:             id,
 		UserID:         claims.ID,
 		Username:       claims.Username,
 		Mode:           body.Mode,
@@ -122,13 +116,8 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		CorrectCount:   body.CorrectCount,
 		IncorrectCount: body.IncorrectCount,
 		DurationSec:    body.DurationSec,
-		CreatedAt:      timeNow(),
+		CreatedAt:      created,
 	}
-	nextResultID++
-
-	results = append([]GameResult{res}, results...)
-	saveResults()
-
 	writeJSON(w, 201, map[string]any{"result": res})
 }
 
@@ -139,11 +128,23 @@ func handleGetResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rows, err := db.Query(
+		`SELECT id, user_id, username, mode, language, wpm, accuracy, cpm, raw_wpm, correct_count, incorrect_count, duration_sec, created_at
+		 FROM results WHERE user_id = ? ORDER BY id DESC`, claims.ID)
+	if err != nil {
+		writeError(w, 500, "Failed to fetch results")
+		return
+	}
+	defer rows.Close()
+
 	var userResults []GameResult
-	for _, res := range results {
-		if res.UserID == claims.ID {
-			userResults = append(userResults, res)
+	for rows.Next() {
+		var r GameResult
+		if err := rows.Scan(&r.ID, &r.UserID, &r.Username, &r.Mode, &r.Language,
+			&r.WPM, &r.Accuracy, &r.CPM, &r.RawWPM, &r.CorrectCount, &r.IncorrectCount, &r.DurationSec, &r.CreatedAt); err != nil {
+			continue
 		}
+		userResults = append(userResults, r)
 	}
 	if userResults == nil {
 		userResults = []GameResult{}
@@ -159,26 +160,33 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sorted := make([]GameResult, len(results))
-	copy(sorted, results)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].WPM > sorted[j].WPM
-	})
-	if len(sorted) > limit {
-		sorted = sorted[:limit]
+	rows, err := db.Query(
+		`SELECT username, wpm, accuracy, mode, language, created_at
+		 FROM results ORDER BY wpm DESC LIMIT ?`, limit)
+	if err != nil {
+		writeError(w, 500, "Failed to fetch leaderboard")
+		return
 	}
+	defer rows.Close()
 
-	entries := make([]LeaderboardEntry, len(sorted))
-	for i, r := range sorted {
-		entries[i] = LeaderboardEntry{
-			Rank:      i + 1,
-			WPM:       r.WPM,
-			Accuracy:  r.Accuracy,
-			ModeLabel: modeLabel(r.Mode),
-			LangLabel: langLabel(r.Language),
-			Date:      r.CreatedAt[:10],
-			Username:  r.Username,
+	var entries []LeaderboardEntry
+	rank := 1
+	for rows.Next() {
+		var username, mode, lang, createdAt string
+		var wpm, accuracy int
+		if err := rows.Scan(&username, &wpm, &accuracy, &mode, &lang, &createdAt); err != nil {
+			continue
 		}
+		entries = append(entries, LeaderboardEntry{
+			Rank:      rank,
+			Username:  username,
+			WPM:       wpm,
+			Accuracy:  accuracy,
+			ModeLabel: modeLabel(mode),
+			LangLabel: langLabel(lang),
+			Date:      createdAt[:10],
+		})
+		rank++
 	}
 	if entries == nil {
 		entries = []LeaderboardEntry{}
@@ -192,7 +200,6 @@ func handleClearResults(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 403, "Insufficient permissions")
 		return
 	}
-	results = nil
-	saveResults()
+	db.Exec("DELETE FROM results")
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
