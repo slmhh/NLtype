@@ -194,6 +194,53 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"entries": entries})
 }
 
+type PersonalBest struct {
+	Mode           string `json:"mode"`
+	Language       string `json:"language"`
+	WPM            int    `json:"wpm"`
+	Accuracy       int    `json:"accuracy"`
+	CPM            int    `json:"cpm"`
+	RawWPM         int    `json:"rawWpm"`
+	CorrectCount   int    `json:"correctCount"`
+	IncorrectCount int    `json:"incorrectCount"`
+	DurationSec    int    `json:"durationSec"`
+	CreatedAt      string `json:"createdAt"`
+}
+
+func handlePersonalBests(w http.ResponseWriter, r *http.Request) {
+	claims := getAuthUser(r)
+	if claims == nil {
+		writeError(w, 401, "Authentication required")
+		return
+	}
+
+	rows, err := db.Query(
+		`SELECT mode, language, wpm, accuracy, cpm, raw_wpm, correct_count, incorrect_count, duration_sec, created_at
+		 FROM (
+		   SELECT *, ROW_NUMBER() OVER (PARTITION BY mode, language ORDER BY wpm DESC) as rn
+		   FROM results WHERE user_id = ?
+		 ) ranked WHERE rn = 1 ORDER BY wpm DESC`, claims.ID)
+	if err != nil {
+		writeError(w, 500, "Failed to fetch personal bests")
+		return
+	}
+	defer rows.Close()
+
+	var bests []PersonalBest
+	for rows.Next() {
+		var b PersonalBest
+		if err := rows.Scan(&b.Mode, &b.Language, &b.WPM, &b.Accuracy, &b.CPM, &b.RawWPM,
+			&b.CorrectCount, &b.IncorrectCount, &b.DurationSec, &b.CreatedAt); err != nil {
+			continue
+		}
+		bests = append(bests, b)
+	}
+	if bests == nil {
+		bests = []PersonalBest{}
+	}
+	writeJSON(w, 200, map[string]any{"bests": bests})
+}
+
 func handleClearResults(w http.ResponseWriter, r *http.Request) {
 	claims := getAuthUser(r)
 	if claims == nil || !hasPermission(Role(claims.Role), "leaderboard:clear") {

@@ -1,5 +1,18 @@
 import type { GameMode, Language } from "./game";
 
+export interface PersonalBest {
+  mode: string;
+  language: string;
+  wpm: number;
+  accuracy: number;
+  cpm: number;
+  rawWpm: number;
+  correctCount: number;
+  incorrectCount: number;
+  durationSec: number;
+  createdAt: string;
+}
+
 export interface GameResult {
   id: string;
   createdAt: string;

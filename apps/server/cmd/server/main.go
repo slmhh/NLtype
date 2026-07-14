@@ -247,6 +247,7 @@ func main() {
 
 	mux.HandleFunc("POST /api/results", handleCreateResult)
 	mux.HandleFunc("GET /api/results", handleGetResults)
+	mux.HandleFunc("GET /api/results/best", handlePersonalBests)
 	mux.HandleFunc("GET /api/results/leaderboard", handleLeaderboard)
 	mux.HandleFunc("DELETE /api/results", handleClearResults)
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Modal, Statistic, Tag } from "@arco-design/web-react";
+import { Button, Message, Modal, Statistic, Tag } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
@@ -200,6 +200,29 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
           <div className="text-[var(--text-tertiary)] text-xs mb-5">
             用时 {Math.floor(typingState.elapsedMs / 60000)}分{Math.floor((typingState.elapsedMs % 60000) / 1000)}秒
           </div>
+
+          <button onClick={() => {
+            const text = [
+              `NLType 打字结果`,
+              `${MODE_LABEL[gameConfig.mode] ?? gameConfig.mode} · ${LANG_LABEL[language] ?? language}`,
+              ``,
+              `WPM: ${typingState.wpm} | 准确率: ${typingState.accuracy}%`,
+              `CPM: ${typingState.cpm} | RAW: ${typingState.rawWpm}`,
+              `正确: ${typingState.correctCount} | 错误: ${typingState.incorrectCount}`,
+              `用时: ${Math.floor(typingState.elapsedMs / 60000)}分${Math.floor((typingState.elapsedMs % 60000) / 1000)}秒`,
+              `峰值: ${peakWpm} WPM`,
+              ``,
+              `nltype  — 打字练习`,
+            ].join("\n");
+            navigator.clipboard.writeText(text).then(
+              () => Message.success("结果已复制到剪贴板"),
+              () => Message.error("复制失败"),
+            );
+          }}
+            className="w-full mb-4 py-2 rounded-xl text-xs tracking-[0.15em] border border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all"
+          >
+            分享结果
+          </button>
 
           <div className="flex gap-2.5">
             <Button type="primary" long onClick={onRetry}

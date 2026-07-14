@@ -1,4 +1,4 @@
-import type { GameResult, LeaderboardEntry } from "../types/results";
+import type { GameResult, LeaderboardEntry, PersonalBest } from "../types/results";
 import type { GameConfig } from "../types/game";
 import { load, save } from "./storage";
 import { api } from "./api";
@@ -88,6 +88,16 @@ export async function getResults(token?: string | null): Promise<GameResult[]> {
     return data.results.map(toGameResult);
   }
   return localResults();
+}
+
+/** Get personal bests per mode+language */
+export async function getPersonalBests(token: string): Promise<PersonalBest[]> {
+  try {
+    const data = await api<{ bests: PersonalBest[] }>("/api/results/best", { token });
+    return data.bests;
+  } catch {
+    return [];
+  }
 }
 
 /** Get global leaderboard */

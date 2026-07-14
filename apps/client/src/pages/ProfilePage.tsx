@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getResults } from "../services/results";
-import type { GameResult } from "../types/results";
+import { getResults, getPersonalBests } from "../services/results";
+import type { GameResult, PersonalBest } from "../types/results";
 import { ROLE_LABELS } from "../types/permissions";
 
 const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
@@ -10,11 +10,15 @@ const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
 export default function ProfilePage() {
   const { user, token } = useAuth();
   const [results, setResults] = useState<GameResult[]>([]);
+  const [bests, setBests] = useState<PersonalBest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    getResults(token).then((r) => { setResults(r); setLoading(false); });
+    if (!user || !token) { setLoading(false); return; }
+    Promise.all([
+      getResults(token).then(setResults),
+      getPersonalBests(token).then(setBests),
+    ]).finally(() => setLoading(false));
   }, [user, token]);
 
   const stats = useMemo(() => {
@@ -94,6 +98,31 @@ export default function ProfilePage() {
             <p className="text-[var(--text-tertiary)] text-sm text-center py-4 tracking-wider">暂无数据</p>
           )}
         </div>
+
+        {/* Personal Bests card */}
+        {bests.length > 0 && (
+          <div className="bg-card rounded-2xl shadow-card p-8">
+            <h3 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-5">个人最佳</h3>
+            <div>
+              <div className="grid grid-cols-[auto_auto_auto_auto] gap-0 text-xs tracking-wider uppercase text-[var(--text-tertiary)] px-2 pb-3 border-b border-[var(--border)]">
+                <span className="w-20">模式</span>
+                <span className="w-12 text-right">WPM</span>
+                <span className="w-14 text-right">准确率</span>
+                <span className="w-20 text-right">日期</span>
+              </div>
+              {bests.map((b) => (
+                <div key={`${b.mode}-${b.language}`}
+                  className="grid grid-cols-[auto_auto_auto_auto] gap-0 text-sm px-2 py-2.5 border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-alt)] transition-colors"
+                >
+                  <span className="w-20 text-[var(--text-primary)] font-mono text-xs">{MODE_LABEL[b.mode] ?? b.mode} · {LANG_LABEL[b.language] ?? b.language}</span>
+                  <span className="w-12 text-right text-[var(--text-primary)] font-mono font-semibold tabular-nums">{b.wpm}</span>
+                  <span className="w-14 text-right text-[var(--text-secondary)] font-mono tabular-nums">{b.accuracy}%</span>
+                  <span className="w-20 text-right text-[var(--text-tertiary)] text-xs font-mono">{new Date(b.createdAt).toLocaleDateString("zh-CN")}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* History */}
         <div className="bg-card rounded-2xl shadow-card p-8">
