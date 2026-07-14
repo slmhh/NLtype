@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import AdminPage from "./pages/AdminPage";
+import EntriesPage from "./pages/EntriesPage";
 import DeveloperPage from "./pages/DeveloperPage";
 import ProfilePage from "./pages/ProfilePage";
 
@@ -35,6 +36,7 @@ export default function App() {
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/game" element={<GamePage />} />
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/entries" element={<EntriesPage />} />
                   <Route path="/developer" element={<DeveloperPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Route>

@@ -5,44 +5,55 @@ import { englishWords } from "../data/en";
 import { getChineseText } from "../data/zh";
 import { getRandomCodeSnippet } from "../data/code";
 import { getRandomQuote } from "../data/quotes";
+import { getApprovedEntries } from "../services/entries";
 import type { GameConfig } from "../types/game";
 
-function generateEnglishWords(count: number): string {
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateEnglishWords(count: number, pool?: string[]): string {
+  const source = pool ?? englishWords;
   const words: string[] = [];
   for (let i = 0; i < count; i++) {
-    words.push(englishWords[Math.floor(Math.random() * englishWords.length)]);
+    words.push(pickRandom(source));
   }
   return words.join(" ");
 }
 
-function generateEnglishTime(timeLimit: number): string {
+function generateEnglishTime(timeLimit: number, pool?: string[]): string {
+  const source = pool ?? englishWords;
   const targetLen = timeLimit <= 15 ? 80 : timeLimit <= 30 ? 200 : timeLimit <= 60 ? 400 : 800;
   const words: string[] = [];
   let len = 0;
   while (len < targetLen) {
-    const w = englishWords[Math.floor(Math.random() * englishWords.length)];
+    const w = pickRandom(source);
     words.push(w);
     len += w.length + 1;
   }
   return words.slice(0, -1).join(" ");
 }
 
-function generateText(config: GameConfig): string {
+function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], codeEntries: string[]): string {
   if (config.language === "code") {
-    return getRandomCodeSnippet();
+    return codeEntries.length > 0 ? pickRandom(codeEntries) : getRandomCodeSnippet();
   }
   if (config.language === "zh") {
-    return getChineseText();
+    return zhEntries.length > 0 ? pickRandom(zhEntries) : getChineseText();
   }
+
+  // Build word pool from approved entries or local data
+  const pool = enEntries.length > 0 ? enEntries.flatMap((e) => e.split(/\s+/).filter(Boolean)) : englishWords;
+
   switch (config.mode) {
     case "quote":
-      return getRandomQuote();
+      return enEntries.length > 0 ? pickRandom(enEntries) : getRandomQuote();
     case "words":
-      return generateEnglishWords(config.wordCount);
+      return generateEnglishWords(config.wordCount, pool);
     case "time":
-      return generateEnglishTime(config.timeLimit);
+      return generateEnglishTime(config.timeLimit, pool);
     case "zen":
-      return generateEnglishTime(120);
+      return generateEnglishTime(120, pool);
   }
 }
 
@@ -51,16 +62,27 @@ export default function GamePage() {
   const navigate = useNavigate();
   const stored = (location.state as { config?: GameConfig })?.config;
   const [key, setKey] = useState(0);
+  const [enEntries, setEnEntries] = useState<string[]>([]);
+  const [zhEntries, setZhEntries] = useState<string[]>([]);
+  const [codeEntries, setCodeEntries] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!stored) {
-      navigate("/", { replace: true });
-    }
+    if (!stored) { navigate("/", { replace: true }); return; }
+    Promise.all([
+      getApprovedEntries("en"),
+      getApprovedEntries("zh"),
+      getApprovedEntries("code"),
+    ]).then(([en, zh, code]) => {
+      setEnEntries(en);
+      setZhEntries(zh);
+      setCodeEntries(code);
+      setReady(true);
+    });
   }, [stored, navigate]);
 
   const config = stored!;
-
-  const text = useMemo(() => generateText(config), [config, key]);
+  const text = useMemo(() => makeText(config, enEntries, zhEntries, codeEntries), [config, enEntries, zhEntries, codeEntries, key]);
 
   const handleRetry = useCallback(() => {
     setKey((k) => k + 1);
@@ -70,7 +92,7 @@ export default function GamePage() {
     navigate("/");
   }, [navigate]);
 
-  if (!stored) return null;
+  if (!stored || !ready) return null;
 
   const noTimer = config.mode === "zen" || config.mode === "words" || config.mode === "quote" || config.language === "code";
 

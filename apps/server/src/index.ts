@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerResultRoutes } from "./results/routes.js";
 import { registerAdminRoutes } from "./admin/routes.js";
+import { registerEntryRoutes } from "./entries/routes.js";
 
 const server = Fastify({ logger: true });
 
@@ -13,6 +14,7 @@ await server.register(cors, {
 registerAuthRoutes(server);
 registerResultRoutes(server);
 registerAdminRoutes(server);
+registerEntryRoutes(server);
 
 server.get("/api/health", async () => {
   return { status: "ok", time: Date.now() };

@@ -65,6 +65,11 @@ export default function NavBar() {
         <NavLink to="/leaderboard" className="no-underline">
           {({ isActive }) => <span className={navLinkClass(isActive)}>排行榜</span>}
         </NavLink>
+        {user && (
+          <NavLink to="/entries" className="no-underline">
+            {({ isActive }) => <span className={navLinkClass(isActive)}>词库</span>}
+          </NavLink>
+        )}
         <PermissionGuard permission="admin:panel">
           <NavLink to="/admin" className="no-underline">
             {({ isActive }) => <span className={navLinkClass(isActive)}>管理</span>}
