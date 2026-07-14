@@ -2,10 +2,12 @@
 import { ConfigProvider, Layout } from "@arco-design/web-react";
 import { ThemeProvider } from "./context/ThemeContext";
 import { LanguageProvider } from "./context/LanguageContext";
+import { AuthProvider } from "./context/AuthContext";
 import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import AdminPage from "./pages/AdminPage";
 
 function AppLayout() {
   return (
@@ -22,17 +24,20 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <ConfigProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/game" element={<GamePage />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </ConfigProvider>
+        <AuthProvider>
+          <ConfigProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/leaderboard" element={<LeaderboardPage />} />
+                  <Route path="/game" element={<GamePage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </ConfigProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

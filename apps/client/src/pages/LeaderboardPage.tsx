@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getLeaderboard, clearResults } from "../services/results";
 import type { LeaderboardEntry } from "../types/results";
 import { NavLink } from "react-router-dom";
+import PermissionGuard from "../components/PermissionGuard";
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>(() => getLeaderboard(50));
@@ -45,14 +46,16 @@ export default function LeaderboardPage() {
               ))}
             </div>
 
-            {/* Clear button */}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => { clearResults(); setEntries([]); }}
-                className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--accent-red)] transition-colors"
-              >
-                清空记录
-              </button>
+            {/* Actions */}
+            <div className="flex justify-between items-center gap-3">
+              <PermissionGuard permission="leaderboard:clear">
+                <button
+                  onClick={() => { if (confirm("确定清空所有记录？")) { clearResults(); setEntries([]); } }}
+                  className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--accent-red)] transition-colors"
+                >
+                  清空记录
+                </button>
+              </PermissionGuard>
               <NavLink to="/" className="text-[var(--accent)] text-xs tracking-[0.15em] hover:underline">
                 ← 返回游戏
               </NavLink>

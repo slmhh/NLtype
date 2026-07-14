@@ -1,11 +1,14 @@
 ﻿import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { registerAuthRoutes } from "./auth/routes.js";
 
 const server = Fastify({ logger: true });
 
 await server.register(cors, {
   origin: ["http://localhost:5173"],
 });
+
+registerAuthRoutes(server);
 
 server.get("/api/health", async () => {
   return { status: "ok", time: Date.now() };
