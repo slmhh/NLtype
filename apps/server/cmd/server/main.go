@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"html"
 	"log"
 	"net/http"
 	"os"
@@ -150,8 +151,8 @@ const (
 
 var rolePermissions = map[Role][]string{
 	RoleUser:      {"game:play", "leaderboard:view"},
-	RoleAdmin:     {"game:play", "leaderboard:view", "leaderboard:clear", "users:view", "admin:panel", "users:manage"},
-	RoleDeveloper: {"game:play", "leaderboard:view", "leaderboard:clear", "users:view", "admin:panel", "users:manage", "users:ban", "system:config", "roles:assign"},
+	RoleAdmin:     {"game:play", "leaderboard:view", "users:view", "admin:panel", "users:manage"},
+	RoleDeveloper: {"game:play", "leaderboard:view", "users:view", "admin:panel", "users:manage", "users:ban", "system:config", "roles:assign"},
 }
 
 func hasPermission(role Role, perm string) bool {
@@ -251,12 +252,14 @@ func checkRateLimit(userID int, maxPerHour int) bool {
 // ── Text sanitize ──
 
 func sanitizeContent(s string) string {
-	return strings.TrimSpace(strings.Map(func(r rune) rune {
+	s = strings.TrimSpace(strings.Map(func(r rune) rune {
 		if r >= 0x00 && r <= 0x08 || r == 0x0B || r == 0x0C || r >= 0x0E && r <= 0x1F {
 			return -1
 		}
 		return r
 	}, s))
+	s = html.EscapeString(s)
+	return s
 }
 
 // ── Helpers ──
