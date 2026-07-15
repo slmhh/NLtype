@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -132,6 +133,7 @@ func handleListEntries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var e WordEntry
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+			log.Printf("scan entry row: %v", err)
 			continue
 		}
 		entries = append(entries, e)
@@ -167,6 +169,7 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var e WordEntry
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+			log.Printf("scan approved entry row: %v", err)
 			continue
 		}
 		approved = append(approved, e)

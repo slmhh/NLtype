@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/rand"
 	"net/http"
 	"path/filepath"
@@ -87,9 +88,14 @@ func handleAdminStats(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var mode string
 			var count int
-			rows.Scan(&mode, &count)
+			if err := rows.Scan(&mode, &count); err != nil {
+				log.Printf("scan mode stats row: %v", err)
+				continue
+			}
 			stats.ResultsByMode[mode] = count
 		}
+	} else {
+		log.Printf("query mode distribution: %v", err)
 	}
 	if stats.ResultsByMode == nil {
 		stats.ResultsByMode = map[string]int{}
@@ -102,9 +108,14 @@ func handleAdminStats(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var lang string
 			var count int
-			rows.Scan(&lang, &count)
+			if err := rows.Scan(&lang, &count); err != nil {
+				log.Printf("scan language stats row: %v", err)
+				continue
+			}
 			stats.ResultsByLang[lang] = count
 		}
+	} else {
+		log.Printf("query language distribution: %v", err)
 	}
 	if stats.ResultsByLang == nil {
 		stats.ResultsByLang = map[string]int{}

@@ -175,6 +175,15 @@ func (e *appErr) Error() string { return e.msg }
 // ── Handlers ──
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
+	ip := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ip = forwarded
+	}
+	if !checkIPRateLimit(ip, 5, 60000) {
+		writeError(w, 429, "Too many requests. Please try again later.")
+		return
+	}
+
 	var body struct {
 		Username string `json:"username"`
 		Email    string `json:"email"`
@@ -219,6 +228,15 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
+	ip := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ip = forwarded
+	}
+	if !checkIPRateLimit(ip, 5, 60000) {
+		writeError(w, 429, "Too many requests. Please try again later.")
+		return
+	}
+
 	var body struct {
 		Identifier string `json:"identifier"`
 		Password   string `json:"password"`

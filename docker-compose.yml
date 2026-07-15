@@ -6,7 +6,7 @@ services:
     volumes:
       - nltype-data:/app/data
     environment:
-      - JWT_SECRET=change-this-in-production
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     restart: unless-stopped
 
 volumes:

@@ -18,7 +18,7 @@ import (
 var (
 	dataDir string
 	distDir string
-	jwtKey  = []byte(getEnv("JWT_SECRET", "dev-secret-change-in-production"))
+	jwtKey  []byte
 	mu      sync.RWMutex
 )
 
@@ -76,12 +76,16 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // ── JWT ──
 
 type Claims struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+	IssuedAt  int64  `json:"iat"`
+	ExpiresAt int64  `json:"exp"`
 }
 
 func signToken(claims Claims) string {
+	claims.IssuedAt = time.Now().Unix()
+	claims.ExpiresAt = time.Now().Add(24 * time.Hour).Unix()
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
 	payload := base64.RawURLEncoding.EncodeToString(mustJSON(claims))
 	sig := hmacSHA256(jwtKey, header+"."+payload)
@@ -103,6 +107,9 @@ func verifyToken(token string) (*Claims, bool) {
 	}
 	var c Claims
 	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, false
+	}
+	if c.ExpiresAt == 0 || time.Now().Unix() > c.ExpiresAt {
 		return nil, false
 	}
 	return &c, true
@@ -174,6 +181,19 @@ func cors(next http.Handler) http.Handler {
 	})
 }
 
+// ── Security headers ──
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("X-XSS-Protection", "0")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // ── Rate limiter ──
 
 type rateRecord struct {
@@ -185,6 +205,32 @@ var (
 	rateMu    sync.Mutex
 	rateLimit = make(map[int]*rateRecord)
 )
+
+type ipRateRecord struct {
+	count   int
+	resetAt int64
+}
+
+var (
+	ipRateMu    sync.Mutex
+	ipRateLimit = make(map[string]*ipRateRecord)
+)
+
+func checkIPRateLimit(ip string, max int, windowMs int64) bool {
+	now := time.Now().UnixMilli()
+	ipRateMu.Lock()
+	defer ipRateMu.Unlock()
+	rec := ipRateLimit[ip]
+	if rec == nil || now > rec.resetAt {
+		ipRateLimit[ip] = &ipRateRecord{count: 1, resetAt: now + windowMs}
+		return true
+	}
+	if rec.count >= max {
+		return false
+	}
+	rec.count++
+	return true
+}
 
 func checkRateLimit(userID int, maxPerHour int) bool {
 	now := time.Now().UnixMilli()
@@ -240,6 +286,12 @@ func spaFileServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	jwtKey = []byte(jwtSecret)
+
 	dataDir = findDataDir()
 	distDir = getEnv("STATIC_DIR", "./dist")
 	log.Printf("Data directory: %s", dataDir)
@@ -282,5 +334,5 @@ func main() {
 
 	port := getEnv("PORT", "3001")
 	log.Printf("Server starting on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, cors(mux)))
+	log.Fatal(http.ListenAndServe(":"+port, securityHeaders(cors(mux))))
 }

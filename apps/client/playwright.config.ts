@@ -6,6 +6,7 @@ const goEnv = {
   GOCACHE: "D:\\Code\\NLtyping\\.tools\\go-cache",
   GOPROXY: "https://goproxy.cn,direct",
   CORS_ORIGIN: "http://localhost:5173",
+  JWT_SECRET: "playwright-test-secret",
   PATH: `D:\\Code\\NLtyping\\.tools\\go\\bin;${process.env.PATH}`,
 };
 

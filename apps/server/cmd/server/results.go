@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -84,8 +85,43 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Invalid request body")
 		return
 	}
-	if body.Mode == "" || body.WPM == 0 {
-		writeError(w, 400, "Missing required fields")
+	validModes := map[string]bool{"time": true, "words": true, "quote": true, "code": true, "zen": true}
+	validLangs := map[string]bool{"en": true, "zh": true, "code": true}
+
+	if !validModes[body.Mode] {
+		writeError(w, 400, "Invalid mode")
+		return
+	}
+	if !validLangs[body.Language] {
+		writeError(w, 400, "Invalid language")
+		return
+	}
+	if body.WPM < 0 || body.WPM > 500 {
+		writeError(w, 400, "Invalid WPM (0-500)")
+		return
+	}
+	if body.Accuracy < 0 || body.Accuracy > 100 {
+		writeError(w, 400, "Invalid accuracy (0-100)")
+		return
+	}
+	if body.CPM < 0 || body.CPM > 5000 {
+		writeError(w, 400, "Invalid CPM")
+		return
+	}
+	if body.RawWPM < 0 || body.RawWPM > 500 {
+		writeError(w, 400, "Invalid raw WPM")
+		return
+	}
+	if body.CorrectCount <= 0 || body.CorrectCount > 5000 {
+		writeError(w, 400, "Invalid correct count")
+		return
+	}
+	if body.IncorrectCount < 0 || body.IncorrectCount > 5000 {
+		writeError(w, 400, "Invalid incorrect count")
+		return
+	}
+	if body.DurationSec <= 0 || body.DurationSec > 3600 {
+		writeError(w, 400, "Invalid duration (1-3600 seconds)")
 		return
 	}
 
@@ -142,6 +178,7 @@ func handleGetResults(w http.ResponseWriter, r *http.Request) {
 		var r GameResult
 		if err := rows.Scan(&r.ID, &r.UserID, &r.Username, &r.Mode, &r.Language,
 			&r.WPM, &r.Accuracy, &r.CPM, &r.RawWPM, &r.CorrectCount, &r.IncorrectCount, &r.DurationSec, &r.CreatedAt); err != nil {
+			log.Printf("scan result row: %v", err)
 			continue
 		}
 		userResults = append(userResults, r)
@@ -155,7 +192,7 @@ func handleGetResults(w http.ResponseWriter, r *http.Request) {
 func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
 			limit = n
 		}
 	}
@@ -175,6 +212,7 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		var username, mode, lang, createdAt string
 		var wpm, accuracy int
 		if err := rows.Scan(&username, &wpm, &accuracy, &mode, &lang, &createdAt); err != nil {
+			log.Printf("scan leaderboard row: %v", err)
 			continue
 		}
 		entries = append(entries, LeaderboardEntry{
@@ -231,6 +269,7 @@ func handlePersonalBests(w http.ResponseWriter, r *http.Request) {
 		var b PersonalBest
 		if err := rows.Scan(&b.Mode, &b.Language, &b.WPM, &b.Accuracy, &b.CPM, &b.RawWPM,
 			&b.CorrectCount, &b.IncorrectCount, &b.DurationSec, &b.CreatedAt); err != nil {
+			log.Printf("scan personal best row: %v", err)
 			continue
 		}
 		bests = append(bests, b)
@@ -243,7 +282,7 @@ func handlePersonalBests(w http.ResponseWriter, r *http.Request) {
 
 func handleClearResults(w http.ResponseWriter, r *http.Request) {
 	claims := getAuthUser(r)
-	if claims == nil || !hasPermission(Role(claims.Role), "leaderboard:clear") {
+	if claims == nil || !hasPermission(Role(claims.Role), "admin:panel") {
 		writeError(w, 403, "Insufficient permissions")
 		return
 	}
