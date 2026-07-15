@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -70,6 +71,21 @@ var migrations = []migration{
 		desc:    "add composite index for personal bests query",
 		sql:     "CREATE INDEX IF NOT EXISTS idx_results_user_mode_lang ON results(user_id, mode, language)",
 	},
+	{
+		version: 3,
+		desc:    "add password_reset_tokens table and settings column",
+		sql: `
+			CREATE TABLE IF NOT EXISTS password_reset_tokens (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				token TEXT NOT NULL,
+				expires_at TEXT NOT NULL,
+				used INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL,
+				FOREIGN KEY (user_id) REFERENCES users(id)
+			);
+			ALTER TABLE users ADD COLUMN settings TEXT NOT NULL DEFAULT '{}';`,
+	},
 }
 
 func initDB(dir string) error {
@@ -102,7 +118,12 @@ func runMigrations() error {
 		}
 		log.Printf("Applying migration %d: %s", m.version, m.desc)
 		if _, err := db.Exec(m.sql); err != nil {
-			return fmt.Errorf("migration %d (%s): %w", m.version, m.desc, err)
+			// SQLite does not support IF NOT EXISTS for ALTER TABLE ADD COLUMN
+			if strings.Contains(err.Error(), "duplicate column") {
+				log.Printf("Migration %d: column already exists, skipping", m.version)
+			} else {
+				return fmt.Errorf("migration %d (%s): %w", m.version, m.desc, err)
+			}
 		}
 		now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 		if _, err := db.Exec("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)", m.version, now); err != nil {

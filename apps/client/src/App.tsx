@@ -12,6 +12,7 @@ import AdminPage from "./pages/AdminPage";
 import EntriesPage from "./pages/EntriesPage";
 import DeveloperPage from "./pages/DeveloperPage";
 import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 
 function AppLayout() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
                   <Route path="/entries" element={<EntriesPage />} />
                   <Route path="/developer" element={<DeveloperPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
                 </Route>
               </Routes>
             </BrowserRouter>

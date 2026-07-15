@@ -213,6 +213,33 @@ export const dict: Record<UILang, Record<string, string>> = {
     "langDropdown.zh": "中文",
     "langDropdown.code": "Code",
 
+    // Forgot Password
+    "auth.forgotPassword": "忘记密码？",
+    "auth.forgotPasswordTitle": "重置密码",
+    "auth.forgotPasswordDesc": "输入邮箱地址，我们将发送重置链接",
+    "auth.forgotPasswordSent": "如果该邮箱已注册，您将收到重置邮件",
+    "auth.forgotPasswordBtn": "发送重置链接",
+    "auth.resetPassword": "重置密码",
+    "auth.resetPasswordTitle": "输入新密码",
+    "auth.resetPasswordSuccess": "密码已重置，请重新登录",
+    "auth.newPassword": "新密码",
+    "auth.emailSent": "邮件发送成功（开发模式 token 已返回）",
+
+    // Settings
+    "settings.title": "设置",
+    "settings.theme": "主题",
+    "settings.themeLight": "浅色",
+    "settings.themeDark": "深色",
+    "settings.uiLanguage": "界面语言",
+    "settings.saved": "设置已保存",
+    "settings.syncNote": "设置将随账号同步",
+
+    // Leaderboard filters
+    "leaderboard.filterTitle": "时间筛选",
+    "leaderboard.filterAfter": "起始日期",
+    "leaderboard.filterBefore": "截止日期",
+    "leaderboard.filterClear": "清除筛选",
+
     // general
     "general.seconds": "秒",
     "general.words": "词",
@@ -426,6 +453,33 @@ export const dict: Record<UILang, Record<string, string>> = {
     "langDropdown.en": "English",
     "langDropdown.zh": "Chinese",
     "langDropdown.code": "Code",
+
+    // Forgot Password
+    "auth.forgotPassword": "Forgot password?",
+    "auth.forgotPasswordTitle": "Reset Password",
+    "auth.forgotPasswordDesc": "Enter your email and we'll send a reset link",
+    "auth.forgotPasswordSent": "If that email is registered, you'll receive a reset link",
+    "auth.forgotPasswordBtn": "Send Reset Link",
+    "auth.resetPassword": "Reset Password",
+    "auth.resetPasswordTitle": "Enter new password",
+    "auth.resetPasswordSuccess": "Password reset successfully, please login again",
+    "auth.newPassword": "New Password",
+    "auth.emailSent": "Email sent (dev mode: token returned in response)",
+
+    // Settings
+    "settings.title": "Settings",
+    "settings.theme": "Theme",
+    "settings.themeLight": "Light",
+    "settings.themeDark": "Dark",
+    "settings.uiLanguage": "UI Language",
+    "settings.saved": "Settings saved",
+    "settings.syncNote": "Settings sync across devices",
+
+    // Leaderboard filters
+    "leaderboard.filterTitle": "Time Filter",
+    "leaderboard.filterAfter": "From",
+    "leaderboard.filterBefore": "To",
+    "leaderboard.filterClear": "Clear Filters",
 
     // general
     "general.seconds": "s",

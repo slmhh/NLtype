@@ -101,9 +101,12 @@ export async function getPersonalBests(token: string): Promise<PersonalBest[]> {
 }
 
 /** Get global leaderboard */
-export async function getLeaderboard(limit = 20, _token?: string | null): Promise<LeaderboardEntry[]> {
+export async function getLeaderboard(limit = 20, _token?: string | null, after?: string, before?: string): Promise<LeaderboardEntry[]> {
   try {
-    const data = await api<{ entries: LeaderboardEntry[] }>(`/api/results/leaderboard?limit=${limit}`);
+    let path = `/api/results/leaderboard?limit=${limit}`;
+    if (after) path += `&after=${encodeURIComponent(after)}`;
+    if (before) path += `&before=${encodeURIComponent(before)}`;
+    const data = await api<{ entries: LeaderboardEntry[] }>(path);
     return data.entries;
   } catch {
     // fall through to local

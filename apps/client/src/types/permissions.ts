@@ -3,9 +3,9 @@ export type Role = "guest" | "user" | "admin" | "developer";
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   guest: ["game:play", "leaderboard:view"],
   user: ["game:play", "leaderboard:view"],
-  admin: ["game:play", "leaderboard:view", "leaderboard:clear", "users:view", "admin:panel", "users:manage"],
+  admin: ["game:play", "leaderboard:view", "users:view", "admin:panel", "users:manage"],
   developer: [
-    "game:play", "leaderboard:view", "leaderboard:clear",
+    "game:play", "leaderboard:view",
     "users:view", "admin:panel", "users:manage", "users:ban", "system:config", "roles:assign",
   ],
 };

@@ -36,6 +36,9 @@ export default function NavBar() {
       <Menu.Item key="profile">
         <NavLink to="/profile" className="no-underline text-inherit">{t("nav.profile")}</NavLink>
       </Menu.Item>
+      <Menu.Item key="settings">
+        <NavLink to="/settings" className="no-underline text-inherit">{t("settings.title")}</NavLink>
+      </Menu.Item>
       <PermissionGuard permission="admin:panel">
         <Menu.Item key="admin">
           <NavLink to="/admin" className="no-underline text-inherit">{t("nav.adminPanel")}</NavLink>

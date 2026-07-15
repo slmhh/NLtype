@@ -316,6 +316,10 @@ func main() {
 	mux.HandleFunc("POST /api/auth/register", handleRegister)
 	mux.HandleFunc("POST /api/auth/login", handleLogin)
 	mux.HandleFunc("GET /api/auth/me", handleMe)
+	mux.HandleFunc("POST /api/auth/forgot-password", handleForgotPassword)
+	mux.HandleFunc("POST /api/auth/reset-password", handleResetPassword)
+	mux.HandleFunc("GET /api/auth/settings", handleGetSettings)
+	mux.HandleFunc("PATCH /api/auth/settings", handleUpdateSettings)
 	mux.HandleFunc("GET /api/auth/users", handleListUsers)
 	mux.HandleFunc("PATCH /api/auth/users/{id}/role", handleUpdateRole)
 

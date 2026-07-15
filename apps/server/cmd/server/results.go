@@ -197,9 +197,21 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	where := ""
+	args := []any{}
+	if after := r.URL.Query().Get("after"); after != "" {
+		where += " AND created_at >= ?"
+		args = append(args, after)
+	}
+	if before := r.URL.Query().Get("before"); before != "" {
+		where += " AND created_at <= ?"
+		args = append(args, before)
+	}
+	args = append(args, limit)
+
 	rows, err := db.Query(
 		`SELECT username, wpm, accuracy, mode, language, created_at
-		 FROM results ORDER BY wpm DESC LIMIT ?`, limit)
+		 FROM results WHERE 1=1`+where+` ORDER BY wpm DESC LIMIT ?`, args...)
 	if err != nil {
 		writeError(w, 500, "Failed to fetch leaderboard")
 		return
