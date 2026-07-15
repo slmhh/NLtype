@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useI18n } from "../context/I18nContext";
 
 interface WpmChartProps {
   data: number[];
@@ -8,6 +9,7 @@ interface WpmChartProps {
 }
 
 export function WpmChart({ data, width = 320, height = 120, currentWpm }: WpmChartProps) {
+  const { t } = useI18n();
   const maxWpm = useMemo(() => Math.max(...data, currentWpm || 0, 1), [data, currentWpm]);
   const paddedMax = Math.max(maxWpm + 20, 60);
 
@@ -25,7 +27,7 @@ export function WpmChart({ data, width = 320, height = 120, currentWpm }: WpmCha
   }, [data, width, height, paddedMax]);
 
   if (data.length < 2) {
-    return <div className="text-center text-[var(--text-tertiary)] text-xs py-4 tracking-wider">等待更多数据...</div>;
+    return <div className="text-center text-[var(--text-tertiary)] text-xs py-4 tracking-wider">{t("wpm.waiting")}</div>;
   }
 
   const latest = currentWpm ?? data[data.length - 1];
@@ -62,7 +64,7 @@ export function WpmChart({ data, width = 320, height = 120, currentWpm }: WpmCha
 
       {/* Current WPM label */}
       <text x={width - 4} y={height - 4} textAnchor="end" fill="var(--text-secondary)" fontSize="10" fontFamily="monospace">
-        {latest} wpm
+        {latest} WPM
       </text>
     </svg>
   );

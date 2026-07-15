@@ -15,8 +15,8 @@ export function hasPermission(role: Role, permission: string): boolean {
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
-  guest: "未登录",
-  user: "普通用户",
-  admin: "管理员",
-  developer: "开发者",
+  guest: "guest",
+  user: "user",
+  admin: "admin",
+  developer: "developer",
 };

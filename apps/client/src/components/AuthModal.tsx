@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal, Form, Input, Button, Message } from "@arco-design/web-react";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 
 interface AuthModalProps {
   visible: boolean;
@@ -9,6 +10,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ visible, onClose }: AuthModalProps) {
   const { login, register } = useAuth();
+  const { t } = useI18n();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -20,10 +22,10 @@ export default function AuthModal({ visible, onClose }: AuthModalProps) {
 
       if (tab === "login") {
         await login(values.identifier, values.password);
-        Message.success("登录成功");
+        Message.success(t("auth.loginSuccess"));
       } else {
         await register(values.username, values.email, values.password);
-        Message.success("注册成功");
+        Message.success(t("auth.registerSuccess"));
       }
 
       form.resetFields();
@@ -62,7 +64,7 @@ export default function AuthModal({ visible, onClose }: AuthModalProps) {
                 : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
-            登录
+            {t("auth.login")}
           </button>
           <button
             onClick={() => switchTab("register")}
@@ -72,7 +74,7 @@ export default function AuthModal({ visible, onClose }: AuthModalProps) {
                 : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
-            注册
+            {t("auth.register")}
           </button>
         </div>
 
@@ -80,49 +82,49 @@ export default function AuthModal({ visible, onClose }: AuthModalProps) {
           {tab === "register" && (
             <Form.Item
               field="username"
-              label="用户名"
+              label={t("auth.username")}
               rules={[
-                { required: true, message: "请输入用户名" },
-                { minLength: 3, message: "用户名至少3个字符" },
-                { maxLength: 20, message: "用户名最多20个字符" },
-                { match: /^[a-zA-Z0-9_]+$/, message: "只能包含字母、数字和下划线" },
+                { required: true, message: t("auth.usernameRequired") },
+                { minLength: 3, message: t("auth.usernameMin") },
+                { maxLength: 20, message: t("auth.usernameMax") },
+                { match: /^[a-zA-Z0-9_]+$/, message: t("auth.usernamePattern") },
               ]}
             >
-              <Input placeholder="3-20位字母、数字或下划线" />
+              <Input placeholder={t("auth.usernamePlaceholder")} />
             </Form.Item>
           )}
 
           <Form.Item
             field="identifier"
             hidden={tab !== "login"}
-            label="用户名或邮箱"
-            rules={[{ required: true, message: "请输入用户名或邮箱" }]}
+            label={t("auth.identifier")}
+            rules={[{ required: true, message: t("auth.identifierRequired") }]}
           >
-            <Input placeholder="用户名或邮箱" />
+            <Input placeholder={t("auth.identifierPlaceholder")} />
           </Form.Item>
 
           {tab === "register" && (
             <Form.Item
               field="email"
-              label="邮箱"
+              label={t("auth.email")}
               rules={[
-                { required: true, message: "请输入邮箱" },
-                { type: "email", message: "邮箱格式不正确" },
+                { required: true, message: t("auth.emailRequired") },
+                { type: "email", message: t("auth.emailInvalid") },
               ]}
             >
-              <Input placeholder="your@email.com" />
+              <Input placeholder={t("auth.emailPlaceholder")} />
             </Form.Item>
           )}
 
           <Form.Item
             field="password"
-            label="密码"
+            label={t("auth.password")}
             rules={[
-              { required: true, message: "请输入密码" },
-              ...(tab === "register" ? [{ minLength: 8, message: "密码至少8个字符" }] : []),
+              { required: true, message: t("auth.passwordRequired") },
+              ...(tab === "register" ? [{ minLength: 8, message: t("auth.passwordMin") }] : []),
             ]}
           >
-            <Input.Password placeholder={tab === "register" ? "至少8个字符" : "输入密码"} />
+            <Input.Password placeholder={tab === "register" ? t("auth.passwordPlaceholderReg") : t("auth.passwordPlaceholderLog")} />
           </Form.Item>
 
           <Button
@@ -132,7 +134,7 @@ export default function AuthModal({ visible, onClose }: AuthModalProps) {
             loading={loading}
             className="!h-10 !text-sm !tracking-[0.15em] !rounded-xl !mt-2"
           >
-            {tab === "login" ? "登录" : "注册"}
+            {tab === "login" ? t("auth.login") : t("auth.register")}
           </Button>
         </Form>
       </div>

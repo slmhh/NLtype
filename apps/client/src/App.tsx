@@ -1,6 +1,7 @@
 ﻿import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { ConfigProvider, Layout } from "@arco-design/web-react";
 import { ThemeProvider } from "./context/ThemeContext";
+import { I18nProvider } from "./context/I18nContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { AuthProvider } from "./context/AuthContext";
 import NavBar from "./components/NavBar";
@@ -26,8 +27,9 @@ function AppLayout() {
 export default function App() {
   return (
     <ThemeProvider>
-      <LanguageProvider>
-        <AuthProvider>
+      <I18nProvider>
+        <LanguageProvider>
+          <AuthProvider>
           <ConfigProvider>
             <BrowserRouter>
               <Routes>
@@ -44,7 +46,8 @@ export default function App() {
             </BrowserRouter>
           </ConfigProvider>
         </AuthProvider>
-      </LanguageProvider>
+        </LanguageProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }

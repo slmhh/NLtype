@@ -7,6 +7,7 @@ import { TypingDisplay } from "./TypingDisplay";
 import { WpmChart } from "./WpmChart";
 import type { GameConfig, Language } from "../types/game";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import { saveResult } from "../services/results";
 
 interface TypingGameProps {
@@ -18,11 +19,9 @@ interface TypingGameProps {
   onBack: () => void;
 }
 
-const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
-const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
-
 export default function TypingGame({ text, language, timeLimit, gameConfig, onRetry, onBack }: TypingGameProps) {
   const { token } = useAuth();
+  const { t } = useI18n();
   const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -99,7 +98,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
       <textarea ref={inputRef} className="absolute opacity-0 w-0 h-0 -z-10" autoFocus />
 
       <button onClick={onBack} className="self-start mb-4 ml-4 text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--text-secondary)] transition-colors">
-        ← 返回
+        {t("game.back")}
       </button>
 
       <div
@@ -113,7 +112,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
             }`}>
               {timerLabel}
             </span>
-            <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{LANG_LABEL[language] ?? language}</span>
+            <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{t(`lang.${language}`)}</span>
           </div>
         )}
 
@@ -140,10 +139,10 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
 
       {phase === "playing" && (
         <div className="w-full max-w-[780px] grid grid-cols-4 gap-0 mt-5">
-          <StatBlock label="wpm" value={String(typingState.wpm)} />
-          <StatBlock label="acc" value={`${typingState.accuracy}%`} />
-          <StatBlock label="progress" value={`${Math.round(progress * 100)}%`} />
-          <StatBlock label="time" value={timerLabel} last />
+          <StatBlock label={t("game.wpm")} value={String(typingState.wpm)} />
+          <StatBlock label={t("game.acc")} value={`${typingState.accuracy}%`} />
+          <StatBlock label={t("game.progress")} value={`${Math.round(progress * 100)}%`} />
+          <StatBlock label={t("game.time")} value={timerLabel} last />
         </div>
       )}
 
@@ -160,10 +159,10 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
       >
         <div className="text-center pt-4 pb-2">
           <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">
-            result
+            {t("game.result")}
           </p>
           <p className="text-[var(--text-tertiary)] text-xs mb-4">
-            {MODE_LABEL[gameConfig.mode] ?? gameConfig.mode} · {LANG_LABEL[language] ?? language}
+            {t(`mode.${gameConfig.mode}`)} · {t(`lang.${language}`)}
           </p>
 
           <Statistic
@@ -176,10 +175,10 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
           />
 
           <div className="grid grid-cols-4 gap-2 my-5">
-            <MiniStat label="peak" value={String(peakWpm)} />
-            <MiniStat label="avg" value={String(avgWpm)} />
-            <MiniStat label="accuracy" value={`${typingState.accuracy}%`} />
-            <MiniStat label="cpm" value={String(typingState.cpm)} />
+            <MiniStat label={t("game.peak")} value={String(peakWpm)} />
+            <MiniStat label={t("game.avg")} value={String(avgWpm)} />
+            <MiniStat label={t("game.accuracy")} value={`${typingState.accuracy}%`} />
+            <MiniStat label={t("game.cpm")} value={String(typingState.cpm)} />
           </div>
 
           <div className="flex items-center justify-center gap-3 mb-5">
@@ -192,46 +191,46 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
 
           {typingState.wpmHistory.length > 1 && (
             <div className="mb-5 px-2">
-              <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">速度曲线</p>
+              <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">{t("game.speedCurve")}</p>
               <WpmChart data={typingState.wpmHistory} currentWpm={typingState.wpm} />
             </div>
           )}
 
           <div className="text-[var(--text-tertiary)] text-xs mb-5">
-            用时 {Math.floor(typingState.elapsedMs / 60000)}分{Math.floor((typingState.elapsedMs % 60000) / 1000)}秒
+            {t("game.elapsed", { m: Math.floor(typingState.elapsedMs / 60000), s: Math.floor((typingState.elapsedMs % 60000) / 1000) })}
           </div>
 
           <button onClick={() => {
             const text = [
-              `NLType 打字结果`,
-              `${MODE_LABEL[gameConfig.mode] ?? gameConfig.mode} · ${LANG_LABEL[language] ?? language}`,
+              t("game.shareHeader"),
+              `${t(`mode.${gameConfig.mode}`)} · ${t(`lang.${language}`)}`,
               ``,
-              `WPM: ${typingState.wpm} | 准确率: ${typingState.accuracy}%`,
-              `CPM: ${typingState.cpm} | RAW: ${typingState.rawWpm}`,
-              `正确: ${typingState.correctCount} | 错误: ${typingState.incorrectCount}`,
-              `用时: ${Math.floor(typingState.elapsedMs / 60000)}分${Math.floor((typingState.elapsedMs % 60000) / 1000)}秒`,
-              `峰值: ${peakWpm} WPM`,
+              t("game.shareWpm", { wpm: typingState.wpm, acc: typingState.accuracy }),
+              t("game.shareCpm", { cpm: typingState.cpm, raw: typingState.rawWpm }),
+              t("game.shareCorrect", { correct: typingState.correctCount, incorrect: typingState.incorrectCount }),
+              t("game.shareTime", { m: Math.floor(typingState.elapsedMs / 60000), s: Math.floor((typingState.elapsedMs % 60000) / 1000) }),
+              t("game.sharePeak", { peak: peakWpm }),
               ``,
-              `nltype  — 打字练习`,
+              t("game.shareFooter"),
             ].join("\n");
             navigator.clipboard.writeText(text).then(
-              () => Message.success("结果已复制到剪贴板"),
-              () => Message.error("复制失败"),
+              () => Message.success(t("game.shareCopied")),
+              () => Message.error(t("game.shareFailed")),
             );
           }}
             className="w-full mb-4 py-2 rounded-xl text-xs tracking-[0.15em] border border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all"
           >
-            分享结果
+             {t("game.shareBtn")}
           </button>
 
           <div className="flex gap-2.5">
             <Button type="primary" long onClick={onRetry}
               className="!rounded-xl !text-sm !tracking-wider !uppercase !font-semibold !h-11">
-              再来一局 <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Tab</span>
+              {t("game.retry")} <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Tab</span>
             </Button>
             <Button type="outline" long onClick={onBack}
               className="!rounded-xl !text-sm !tracking-wider !uppercase !h-11">
-              返回大厅 <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Esc</span>
+              {t("game.backToLobby")} <span className="text-[var(--text-tertiary)] opacity-60 ml-1 text-[10px]">Esc</span>
             </Button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import type { CharResult } from "../hooks/useTypingEngine";
 
 beforeEach(() => {
   const mockCtx = { font: "", measureText: () => ({ width: 15.6 }) };
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx as unknown as CanvasRenderingContext2D);
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx as any);
 });
 
 function makeChars(text: string, typed: string): CharResult[] {

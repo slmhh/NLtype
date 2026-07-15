@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
+import { useI18n } from "../context/I18nContext";
 import type { GameConfig, GameCategory, GameMode, Language } from "../types/game";
 import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, defaultConfig } from "../types/game";
 
@@ -9,6 +10,7 @@ export type { GameConfig, GameMode, Language } from "../types/game";
 export default function HomePage() {
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
+  const { t } = useI18n();
   const config = useState<GameConfig>(defaultConfig)[0];
   const [category, setCategory] = useState<GameCategory>(config.category);
   const [mode, setMode] = useState<GameMode>(config.mode);
@@ -57,7 +59,7 @@ export default function HomePage() {
           NLType
         </h1>
         <p className="text-[var(--text-tertiary)] text-sm tracking-[0.2em] mt-3">
-          打字练习 · 专注书写
+          {t("home.subtitle")}
         </p>
       </div>
 
@@ -68,10 +70,10 @@ export default function HomePage() {
           <button onClick={() => setCategory("timed")}
             className={`px-5 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all font-mono ${
               category === "timed"
-                ? "bg-[var(--accent)] text-white shadow-sm"
+                ? "             bg-[var(--accent)] text-white shadow-sm"
                 : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}>
-            计时
+            {t("home.categoryTimed")}
           </button>
           <button onClick={() => setCategory("passage")}
             className={`px-5 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all font-mono ${
@@ -79,7 +81,7 @@ export default function HomePage() {
                 ? "bg-[var(--accent)] text-white shadow-sm"
                 : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}>
-            文章
+            {t("home.categoryPassage")}
           </button>
         </div>
 
@@ -93,7 +95,7 @@ export default function HomePage() {
                   ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                   : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
               }`}>
-              {m.label}
+              {t(`mode.${m.id}`)}
             </button>
           ))}
         </div>
@@ -118,13 +120,13 @@ export default function HomePage() {
               {n}
             </button>
           ))}
-          {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">∞ 无限模式</span>}
-          {mode === "quote" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">随机名言</span>}
+          {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.zenMode")}</span>}
+          {mode === "quote" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.quoteMode")}</span>}
         </div>
 
         {/* Language */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">语言</span>
+          <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{t("home.language")}</span>
           <div className="flex items-center gap-1.5">
             {LANGUAGES.map((l, i) => (
               <span key={l.id}>
@@ -132,7 +134,7 @@ export default function HomePage() {
                   className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
                     language === l.id ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                   }`}>
-                  {l.label}
+                  {t(`lang.${l.id}`)}
                 </button>
                 {i < LANGUAGES.length - 1 && <span className="text-[var(--border)] text-xs mx-1">/</span>}
               </span>
@@ -143,15 +145,15 @@ export default function HomePage() {
         {/* Start */}
         <button onClick={handleStart}
           className="w-full py-4 rounded-xl bg-[var(--accent)] text-white text-base tracking-[0.15em] font-medium hover:opacity-90 transition-all">
-          按 Enter 键开始
+          {t("home.start")}
         </button>
       </div>
 
       {/* Footer */}
       <p className="fixed bottom-6 text-[var(--text-tertiary)] text-xs tracking-[0.2em]">
-        {language === "en" ? "english" : language === "zh" ? "chinese" : "code"} ·{" "}
-        {language !== "code" && (mode === "time" ? `${timeLimit}秒` : mode === "words" ? `${wordCount}词` : mode === "quote" ? "引用" : mode) + " · "}
-        {category === "timed" ? "计时" : "文章"}
+        {t(`lang.${language}`)} ·{" "}
+        {language !== "code" && (mode === "time" ? `${timeLimit}${t("general.seconds")}` : mode === "words" ? `${wordCount}${t("general.words")}` : mode === "quote" ? t("general.quote") : mode) + " · "}
+        {category === "timed" ? t("home.footerTimed") : t("home.footerPassage")}
       </p>
     </div>
   );

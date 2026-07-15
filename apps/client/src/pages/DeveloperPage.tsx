@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Message, Select, Modal, Input } from "@arco-design/web-react";
+import { Message, Select, Input } from "@arco-design/web-react";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import { api } from "../services/api";
-import { getResults } from "../services/results";
 import type { Role } from "../types/permissions";
-import { ROLE_LABELS } from "../types/permissions";
 
 interface UserItem {
   id: number;
@@ -23,14 +22,11 @@ interface Stats {
   avgWpm: number;
 }
 
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "user", label: "普通用户" },
-  { value: "admin", label: "管理员" },
-  { value: "developer", label: "开发者" },
-];
+const devRoleOptions = ["user", "admin", "developer"] as const;
 
 export default function DeveloperPage() {
   const { user, token, hasPermission } = useAuth();
+  const { t } = useI18n();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +47,7 @@ export default function DeveloperPage() {
         method: "PATCH", body: { role: newRole }, token,
       });
       setUsers((prev) => prev.map((u) => (u.id === targetId ? { ...u, role: newRole } : u)));
-      Message.success(`角色已更新为 ${ROLE_LABELS[newRole]}`);
+      Message.success(t("dev.roleUpdated", { role: t(`role.${newRole}`) }));
     } catch (e: any) {
       Message.error(e.message);
     }
@@ -60,7 +56,7 @@ export default function DeveloperPage() {
   if (!hasPermission("admin:panel")) {
     return (
       <div className="flex flex-col items-center pt-20 px-4 select-none">
-        <p className="text-[var(--text-tertiary)] text-sm tracking-wider">无权限访问</p>
+        <p className="text-[var(--text-tertiary)] text-sm tracking-wider">{t("dev.noPermission")}</p>
       </div>
     );
   }
@@ -70,16 +66,16 @@ export default function DeveloperPage() {
   );
 
   const tabs = [
-    { key: "users" as const, label: "用户管理" },
-    { key: "system" as const, label: "系统信息" },
+    { key: "users" as const, label: t("dev.tabUsers") },
+    { key: "system" as const, label: t("dev.tabSystem") },
   ];
 
   return (
     <div className="flex flex-col items-center pt-16 px-4 pb-16 select-none">
       <div className="w-full max-w-3xl">
         <h2 className="text-center text-[var(--text-primary)] text-lg tracking-[0.15em] mb-6">
-          <span className="bg-yellow-500/10 text-yellow-500 text-xs px-2 py-0.5 rounded mr-2 align-middle">DEV</span>
-          开发者面板
+          <span className="bg-yellow-500/10 text-yellow-500 text-xs px-2 py-0.5 rounded mr-2 align-middle">{t("dev.badge")}</span>
+          {t("dev.title")}
         </h2>
 
         {/* Tabs */}
@@ -95,13 +91,13 @@ export default function DeveloperPage() {
         </div>
 
         {loading ? (
-          <div className="bg-card rounded-2xl shadow-card p-8 text-center text-[var(--text-tertiary)] text-sm">加载中...</div>
+          <div className="bg-card rounded-2xl shadow-card p-8 text-center text-[var(--text-tertiary)] text-sm">{t("dev.loading")}</div>
         ) : tab === "users" ? (
           <>
             {/* Search */}
             <div className="mb-4">
               <Input.Search
-                placeholder="搜索用户名或邮箱..."
+                placeholder={t("dev.searchPlaceholder")}
                 value={search}
                 onChange={setSearch}
                 className="!rounded-xl"
@@ -110,10 +106,10 @@ export default function DeveloperPage() {
 
             <div className="bg-card rounded-2xl shadow-card overflow-hidden">
               <div className="grid grid-cols-[3rem_3fr_auto_auto] gap-0 text-xs tracking-wider uppercase text-[var(--text-tertiary)] px-5 py-3 border-b border-[var(--border)]">
-                <span>#</span>
-                <span>用户名 / 邮箱</span>
-                <span>角色</span>
-                <span className="text-right">操作</span>
+                <span>{t("dev.colHash")}</span>
+                <span>{t("dev.colUserEmail")}</span>
+                <span>{t("dev.colRole")}</span>
+                <span className="text-right">{t("dev.colActions")}</span>
               </div>
               {filtered.map((u) => (
                 <div key={u.id} className="grid grid-cols-[3rem_3fr_auto_auto] gap-0 text-sm px-5 py-3 border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-alt)] transition-colors items-center">
@@ -127,7 +123,7 @@ export default function DeveloperPage() {
                     u.role === "admin" ? "bg-blue-500/10 text-blue-500" :
                     "bg-gray-500/10 text-[var(--text-tertiary)]"
                   }`}>
-                    {ROLE_LABELS[u.role]}
+                    {t(`role.${u.role}`)}
                   </span>
                   <div className="text-right">
                     {u.id !== user?.id ? (
@@ -135,15 +131,15 @@ export default function DeveloperPage() {
                         <Select
                           size="mini"
                           value={u.role}
-                          options={ROLE_OPTIONS}
+                          options={devRoleOptions.map((r) => ({ value: r, label: t(`role.${r}`) }))}
                           onChange={(v) => handleRoleChange(u.id, v as Role)}
                           className="!w-24"
                         />
                       ) : (
-                        <span className="text-[var(--text-tertiary)] text-xs">—</span>
+                        <span className="text-[var(--text-tertiary)] text-xs">{t("dev.noAction")}</span>
                       )
                     ) : (
-                      <span className="text-[var(--text-tertiary)] text-xs">当前用户</span>
+                      <span className="text-[var(--text-tertiary)] text-xs">{t("dev.currentUser")}</span>
                     )}
                   </div>
                 </div>
@@ -156,10 +152,10 @@ export default function DeveloperPage() {
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "用户总数", value: stats.totalUsers },
-                  { label: "游戏场次", value: stats.totalResults },
-                  { label: "最高 WPM", value: stats.topWpm },
-                  { label: "平均 WPM", value: stats.avgWpm },
+                  { label: t("dev.statTotalUsers"), value: stats.totalUsers },
+                  { label: t("dev.statTotalGames"), value: stats.totalResults },
+                  { label: t("dev.statTopWpm"), value: stats.topWpm },
+                  { label: t("dev.statAvgWpm"), value: stats.avgWpm },
                 ].map((s) => (
                   <div key={s.label} className="bg-card rounded-2xl shadow-card p-5 text-center">
                     <div className="text-3xl font-bold font-mono text-[var(--accent)] tabular-nums">{s.value}</div>
@@ -170,14 +166,14 @@ export default function DeveloperPage() {
             )}
 
             <div className="bg-card rounded-2xl shadow-card p-6">
-              <h4 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-4">服务器信息</h4>
+              <h4 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-4">{t("dev.sectionServer")}</h4>
               <div className="space-y-2 text-sm">
                 {[
-                  { label: "API 地址", value: "http://localhost:3001" },
-                  { label: "用户存储", value: "apps/server/data/users.json" },
-                  { label: "成绩存储", value: "apps/server/data/results.json" },
-                  { label: "认证方式", value: "JWT (24h) + bcryptjs (12轮)" },
-                  { label: "CORS 来源", value: "http://localhost:5173" },
+                  { label: t("dev.serverApi"), value: "http://localhost:3001" },
+                  { label: t("dev.serverUsers"), value: "apps/server/data/users.json" },
+                  { label: t("dev.serverResults"), value: "apps/server/data/results.json" },
+                  { label: t("dev.serverAuth"), value: "JWT (24h) + bcryptjs (12轮)" },
+                  { label: t("dev.serverCors"), value: "http://localhost:5173" },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-2">
                     <span className="text-[var(--text-tertiary)] text-xs tracking-wider w-24">{s.label}</span>
@@ -188,7 +184,7 @@ export default function DeveloperPage() {
             </div>
 
             <div className="bg-card rounded-2xl shadow-card p-6">
-              <h4 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-4">模式分布</h4>
+              <h4 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-4">{t("dev.sectionModeDist")}</h4>
               {stats && (
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {Object.entries(stats.resultsByMode).map(([k, v]) => (

@@ -3,10 +3,12 @@ import { getLeaderboard, clearResults } from "../services/results";
 import type { LeaderboardEntry } from "../types/results";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import PermissionGuard from "../components/PermissionGuard";
 
 export default function LeaderboardPage() {
   const { token } = useAuth();
+  const { t } = useI18n();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,7 +19,7 @@ export default function LeaderboardPage() {
   }, [token]);
 
   const handleClear = async () => {
-    if (!confirm("确定清空所有记录？")) return;
+    if (!confirm(t("leaderboard.confirmClear"))) return;
     await clearResults(token);
     setEntries([]);
   };
@@ -25,28 +27,28 @@ export default function LeaderboardPage() {
   return (
     <div className="flex flex-col items-center pt-20 px-4 pb-16 select-none">
       <div className="w-full max-w-xl">
-        <h2 className="text-center text-[var(--text-primary)] text-lg tracking-[0.15em] mb-6">排行榜</h2>
+        <h2 className="text-center text-[var(--text-primary)] text-lg tracking-[0.15em] mb-6">{t("leaderboard.title")}</h2>
 
         {loading ? (
           <div className="bg-card rounded-2xl shadow-card p-8 text-center">
-            <p className="text-[var(--text-tertiary)] text-sm tracking-wider">加载中...</p>
+            <p className="text-[var(--text-tertiary)] text-sm tracking-wider">{t("leaderboard.loading")}</p>
           </div>
         ) : entries.length === 0 ? (
           <div className="bg-card rounded-2xl shadow-card p-8 text-center">
-            <p className="text-[var(--text-tertiary)] text-sm tracking-wider mb-4">暂无记录</p>
+            <p className="text-[var(--text-tertiary)] text-sm tracking-wider mb-4">{t("leaderboard.empty")}</p>
             <NavLink to="/" className="text-[var(--accent)] text-xs tracking-[0.15em] hover:underline">
-              ← 开始一局
+              {t("leaderboard.startGame")}
             </NavLink>
           </div>
         ) : (
           <>
             <div className="bg-card rounded-2xl shadow-card overflow-hidden mb-4">
               <div className="grid grid-cols-[3rem_1fr_auto_auto_auto] gap-0 text-xs tracking-wider uppercase text-[var(--text-tertiary)] px-5 py-3 border-b border-[var(--border)]">
-                <span>#</span>
-                <span>用户</span>
-                <span className="text-right">wpm</span>
-                <span className="text-right">acc</span>
-                <span className="text-right">mode</span>
+                <span>{t("leaderboard.colHash")}</span>
+                <span>{t("leaderboard.colUser")}</span>
+                <span className="text-right">{t("leaderboard.colWpm")}</span>
+                <span className="text-right">{t("leaderboard.colAcc")}</span>
+                <span className="text-right">{t("leaderboard.colMode")}</span>
               </div>
               {entries.map((e) => (
                 <div
@@ -67,11 +69,11 @@ export default function LeaderboardPage() {
                 <button onClick={handleClear}
                   className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] hover:text-[var(--accent-red)] transition-colors"
                 >
-                  清空记录
+                  {t("leaderboard.clear")}
                 </button>
               </PermissionGuard>
               <NavLink to="/" className="text-[var(--accent)] text-xs tracking-[0.15em] hover:underline">
-                ← 返回游戏
+                {t("leaderboard.backToGame")}
               </NavLink>
             </div>
           </>

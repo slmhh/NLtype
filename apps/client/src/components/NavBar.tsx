@@ -4,23 +4,24 @@ import { Button, Layout, Dropdown, Menu } from "@arco-design/web-react";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import AuthModal from "./AuthModal";
 import PermissionGuard from "./PermissionGuard";
 import type { Language } from "../types/game";
-import { ROLE_LABELS } from "../types/permissions";
 
 export default function NavBar() {
   const location = useLocation();
   const { theme, toggle } = useTheme();
   const { language, setLanguage } = useLanguage();
   const { user, logout } = useAuth();
+  const { lang: uiLang, setLang: setUILang, t } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
   const langs: { key: Language; label: string }[] = [
-    { key: "en", label: "English" },
-    { key: "zh", label: "中文" },
-    { key: "code", label: "Code" },
+    { key: "en", label: t("langDropdown.en") },
+    { key: "zh", label: t("langDropdown.zh") },
+    { key: "code", label: t("langDropdown.code") },
   ];
   const current = langs.find((l) => l.key === language)!;
 
@@ -32,19 +33,19 @@ export default function NavBar() {
   const userMenu = (
     <Menu onClickMenuItem={(key) => { if (key === "logout") logout(); }}>
       <Menu.Item key="profile">
-        <NavLink to="/profile" className="no-underline text-inherit">个人信息</NavLink>
+        <NavLink to="/profile" className="no-underline text-inherit">{t("nav.profile")}</NavLink>
       </Menu.Item>
       <PermissionGuard permission="admin:panel">
         <Menu.Item key="admin">
-          <NavLink to="/admin" className="no-underline text-inherit">管理面板</NavLink>
+          <NavLink to="/admin" className="no-underline text-inherit">{t("nav.adminPanel")}</NavLink>
         </Menu.Item>
       </PermissionGuard>
       <PermissionGuard permission="roles:assign">
         <Menu.Item key="developer">
-          <NavLink to="/developer" className="no-underline text-inherit">开发者面板</NavLink>
+          <NavLink to="/developer" className="no-underline text-inherit">{t("nav.devPanel")}</NavLink>
         </Menu.Item>
       </PermissionGuard>
-      <Menu.Item key="logout" style={{ color: "var(--color-text-3)" }}>退出登录</Menu.Item>
+      <Menu.Item key="logout" style={{ color: "var(--color-text-3)" }}>{t("nav.logout")}</Menu.Item>
     </Menu>
   );
 
@@ -60,24 +61,24 @@ export default function NavBar() {
       {/* Left nav links */}
       <div className="flex items-center gap-5">
         <NavLink to="/" end className="no-underline">
-          {({ isActive }) => <span className={navLinkClass(isActive || location.pathname === "/game")}>游戏</span>}
+          {({ isActive }) => <span className={navLinkClass(isActive || location.pathname === "/game")}>{t("nav.game")}</span>}
         </NavLink>
         <NavLink to="/leaderboard" className="no-underline">
-          {({ isActive }) => <span className={navLinkClass(isActive)}>排行榜</span>}
+          {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.leaderboard")}</span>}
         </NavLink>
         {user && (
           <NavLink to="/entries" className="no-underline">
-            {({ isActive }) => <span className={navLinkClass(isActive)}>词库</span>}
+            {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.entries")}</span>}
           </NavLink>
         )}
         <PermissionGuard permission="admin:panel">
           <NavLink to="/admin" className="no-underline">
-            {({ isActive }) => <span className={navLinkClass(isActive)}>管理</span>}
+            {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.admin")}</span>}
           </NavLink>
         </PermissionGuard>
         <PermissionGuard permission="roles:assign">
           <NavLink to="/developer" className="no-underline">
-            {({ isActive }) => <span className={navLinkClass(isActive)}>开发者</span>}
+            {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.developer")}</span>}
           </NavLink>
         </PermissionGuard>
       </div>
@@ -115,6 +116,14 @@ export default function NavBar() {
           )}
         </div>
 
+        {/* UI language toggle */}
+        <button
+          onClick={() => setUILang(uiLang === "zh" ? "en" : "zh")}
+          className="text-xs font-mono tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
+        >
+          {uiLang === "zh" ? "EN" : "中"}
+        </button>
+
         {/* Theme toggle */}
         <button
           onClick={toggle}
@@ -136,7 +145,7 @@ export default function NavBar() {
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                   user.role === "developer" ? "bg-yellow-500/10 text-yellow-500" : "bg-blue-500/10 text-blue-500"
                 }`}>
-                  {ROLE_LABELS[user.role]}
+                  {t(`role.${user.role}`)}
                 </span>
               )}
             </button>
@@ -148,7 +157,7 @@ export default function NavBar() {
             onClick={() => setAuthOpen(true)}
             className="!text-xs !tracking-[0.15em] !rounded-lg !h-8 !border-[var(--border)] !text-[var(--text-secondary)]"
           >
-            登录
+            {t("nav.login")}
           </Button>
         )}
       </div>

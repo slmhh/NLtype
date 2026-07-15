@@ -16,19 +16,19 @@ export interface ModeEntry {
 }
 
 export const TIMED_MODES: ModeEntry[] = [
-  { id: "time", label: "时间" },
-  { id: "zen", label: "禅" },
+  { id: "time", label: "time" },
+  { id: "zen", label: "zen" },
 ];
 
 export const PASSAGE_MODES: ModeEntry[] = [
-  { id: "words", label: "单词" },
-  { id: "quote", label: "引用" },
+  { id: "words", label: "words" },
+  { id: "quote", label: "quote" },
 ];
 
 export const LANGUAGES: { id: Language; label: string }[] = [
-  { id: "en", label: "EN" },
-  { id: "zh", label: "中文" },
-  { id: "code", label: "Code" },
+  { id: "en", label: "en" },
+  { id: "zh", label: "zh" },
+  { id: "code", label: "code" },
 ];
 
 export const TIME_OPTIONS = [15, 30, 60, 120] as const;

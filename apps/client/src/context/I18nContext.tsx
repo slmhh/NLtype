@@ -1,0 +1,471 @@
+import { createContext, useContext, useCallback, useState, useEffect } from "react";
+import { load, save } from "../services/storage";
+
+type UILang = "zh" | "en";
+const UI_LANG_KEY = "ui-lang";
+
+export const dict: Record<UILang, Record<string, string>> = {
+  zh: {
+    // NavBar
+    "nav.game": "游戏",
+    "nav.leaderboard": "排行榜",
+    "nav.entries": "词库",
+    "nav.admin": "管理",
+    "nav.developer": "开发者",
+    "nav.profile": "个人信息",
+    "nav.adminPanel": "管理面板",
+    "nav.devPanel": "开发者面板",
+    "nav.logout": "退出登录",
+    "nav.login": "登录",
+
+    // AuthModal
+    "auth.login": "登录",
+    "auth.register": "注册",
+    "auth.loginSuccess": "登录成功",
+    "auth.registerSuccess": "注册成功",
+    "auth.username": "用户名",
+    "auth.usernameRequired": "请输入用户名",
+    "auth.usernameMin": "用户名至少3个字符",
+    "auth.usernameMax": "用户名最多20个字符",
+    "auth.usernamePattern": "只能包含字母、数字和下划线",
+    "auth.usernamePlaceholder": "3-20位字母、数字或下划线",
+    "auth.identifier": "用户名或邮箱",
+    "auth.identifierRequired": "请输入用户名或邮箱",
+    "auth.identifierPlaceholder": "用户名或邮箱",
+    "auth.email": "邮箱",
+    "auth.emailRequired": "请输入邮箱",
+    "auth.emailInvalid": "邮箱格式不正确",
+    "auth.emailPlaceholder": "your@email.com",
+    "auth.password": "密码",
+    "auth.passwordRequired": "请输入密码",
+    "auth.passwordMin": "密码至少8个字符",
+    "auth.passwordPlaceholderReg": "至少8个字符",
+    "auth.passwordPlaceholderLog": "输入密码",
+
+    // HomePage
+    "home.subtitle": "打字练习 · 专注书写",
+    "home.categoryTimed": "计时",
+    "home.categoryPassage": "文章",
+    "home.zenMode": "∞ 无限模式",
+    "home.quoteMode": "随机名言",
+    "home.language": "语言",
+    "home.start": "按 Enter 键开始",
+    "home.footerTimed": "计时",
+    "home.footerPassage": "文章",
+
+    // Game
+    "game.back": "← 返回",
+    "game.result": "result",
+    "game.peak": "peak",
+    "game.avg": "avg",
+    "game.accuracy": "accuracy",
+    "game.cpm": "cpm",
+    "game.speedCurve": "速度曲线",
+    "game.elapsed": "用时 {m}分{s}秒",
+    "game.shareHeader": "NLType 打字结果",
+    "game.shareWpm": "WPM: {wpm} | 准确率: {acc}%",
+    "game.shareCpm": "CPM: {cpm} | RAW: {raw}",
+    "game.shareCorrect": "正确: {correct} | 错误: {incorrect}",
+    "game.shareTime": "用时: {m}分{s}秒",
+    "game.sharePeak": "峰值: {peak} WPM",
+    "game.shareFooter": "nltype  — 打字练习",
+    "game.shareCopied": "结果已复制到剪贴板",
+    "game.shareFailed": "复制失败",
+    "game.shareBtn": "分享结果",
+    "game.retry": "再来一局",
+    "game.backToLobby": "返回大厅",
+    "game.wpm": "wpm",
+    "game.acc": "acc",
+    "game.progress": "progress",
+    "game.time": "time",
+
+    // WpmChart
+    "wpm.waiting": "等待更多数据...",
+
+    // ProfilePage
+    "profile.notLoggedIn": "请先登录",
+    "profile.loading": "加载中...",
+    "profile.registeredAt": "注册时间 · {date}",
+    "profile.stats": "游戏统计",
+    "profile.totalGames": "总场次",
+    "profile.avgWpm": "平均 WPM",
+    "profile.bestWpm": "最高 WPM",
+    "profile.avgAcc": "平均准确率",
+    "profile.totalTime": "总时长",
+    "profile.noData": "暂无数据",
+    "profile.personalBests": "个人最佳",
+    "profile.colMode": "模式",
+    "profile.colWpm": "WPM",
+    "profile.colAcc": "准确率",
+    "profile.colDate": "日期",
+    "profile.recentResults": "最近成绩",
+    "profile.colLang": "语言",
+    "profile.noRecords": "暂无记录",
+
+    // LeaderboardPage
+    "leaderboard.title": "排行榜",
+    "leaderboard.loading": "加载中...",
+    "leaderboard.empty": "暂无记录",
+    "leaderboard.startGame": "← 开始一局",
+    "leaderboard.colHash": "#",
+    "leaderboard.colUser": "用户",
+    "leaderboard.colWpm": "wpm",
+    "leaderboard.colAcc": "acc",
+    "leaderboard.colMode": "mode",
+    "leaderboard.clear": "清空记录",
+    "leaderboard.backToGame": "← 返回游戏",
+    "leaderboard.confirmClear": "确定清空所有记录？",
+
+    // EntriesPage
+    "entries.notLoggedIn": "请先登录",
+    "entries.title": "词库管理",
+    "entries.tabSubmit": "上传词库",
+    "entries.tabMine": "我的提交",
+    "entries.tabReview": "审核",
+    "entries.language": "语言",
+    "entries.content": "内容",
+    "entries.placeholder": "在此粘贴或输入词库内容…\n\nEnglish: 输入单词列表，每行一个\n中文: 输入中文语段\nCode: 输入代码片段",
+    "entries.charCount": "{n} / 10000",
+    "entries.submitting": "提交中…",
+    "entries.submit": "提交词库",
+    "entries.submitInfo": "提交后需管理员或开发者审核通过方可使用",
+    "entries.loading": "加载中...",
+    "entries.emptyMine": "暂无提交记录",
+    "entries.emptyReview": "暂无待审核词库",
+    "entries.approve": "通过",
+    "entries.reject": "拒绝",
+    "entries.minLengthError": "内容至少 10 个字符",
+    "entries.submitOk": "提交成功，等待审核",
+    "entries.reviewApproved": "已通过",
+    "entries.reviewRejected": "已拒绝",
+    "entries.statusPending": "待审核",
+    "entries.statusApproved": "已通过",
+    "entries.statusRejected": "已拒绝",
+
+    // DeveloperPage
+    "dev.noPermission": "无权限访问",
+    "dev.badge": "DEV",
+    "dev.title": "开发者面板",
+    "dev.tabUsers": "用户管理",
+    "dev.tabSystem": "系统信息",
+    "dev.loading": "加载中...",
+    "dev.searchPlaceholder": "搜索用户名或邮箱...",
+    "dev.colHash": "#",
+    "dev.colUserEmail": "用户名 / 邮箱",
+    "dev.colRole": "角色",
+    "dev.colActions": "操作",
+    "dev.noAction": "—",
+    "dev.currentUser": "当前用户",
+    "dev.roleUpdated": "角色已更新为 {role}",
+    "dev.statTotalUsers": "用户总数",
+    "dev.statTotalGames": "游戏场次",
+    "dev.statTopWpm": "最高 WPM",
+    "dev.statAvgWpm": "平均 WPM",
+    "dev.sectionServer": "服务器信息",
+    "dev.sectionModeDist": "模式分布",
+    "dev.serverApi": "API 地址",
+    "dev.serverUsers": "用户存储",
+    "dev.serverResults": "成绩存储",
+    "dev.serverAuth": "认证方式",
+    "dev.serverCors": "CORS 来源",
+
+    // AdminPage
+    "admin.noPermission": "无权限访问",
+    "admin.title": "管理面板",
+    "admin.tabDashboard": "概览",
+    "admin.tabUsers": "用户管理",
+    "admin.loading": "加载中...",
+    "admin.statTotalUsers": "用户总数",
+    "admin.statTotalGames": "游戏场次",
+    "admin.statTopWpm": "最高 WPM",
+    "admin.statAvgWpm": "平均 WPM",
+    "admin.sectionModeDist": "模式分布",
+    "admin.sectionLangDist": "语言分布",
+    "admin.clearAll": "清空所有成绩",
+    "admin.confirmClear": "确定清空所有成绩记录？",
+    "admin.clearSuccess": "已清空",
+    "admin.colHash": "#",
+    "admin.colUsername": "用户名",
+    "admin.colRole": "角色",
+    "admin.colCreatedAt": "注册时间",
+    "admin.emptyUsers": "暂无用户",
+
+    // permissions
+    "role.guest": "未登录",
+    "role.user": "普通用户",
+    "role.admin": "管理员",
+    "role.developer": "开发者",
+
+    // game mode labels
+    "mode.time": "计时",
+    "mode.zen": "禅",
+    "mode.words": "单词",
+    "mode.quote": "引用",
+    "mode.code": "代码",
+
+    // language labels
+    "lang.en": "EN",
+    "lang.zh": "中文",
+    "lang.code": "Code",
+
+    // NavBar language dropdown
+    "langDropdown.en": "English",
+    "langDropdown.zh": "中文",
+    "langDropdown.code": "Code",
+
+    // general
+    "general.seconds": "秒",
+    "general.words": "词",
+    "general.quote": "引用",
+  },
+
+  en: {
+    // NavBar
+    "nav.game": "Game",
+    "nav.leaderboard": "Leaderboard",
+    "nav.entries": "Entries",
+    "nav.admin": "Admin",
+    "nav.developer": "Developer",
+    "nav.profile": "Profile",
+    "nav.adminPanel": "Admin Panel",
+    "nav.devPanel": "Dev Panel",
+    "nav.logout": "Logout",
+    "nav.login": "Login",
+
+    // AuthModal
+    "auth.login": "Login",
+    "auth.register": "Register",
+    "auth.loginSuccess": "Login successful",
+    "auth.registerSuccess": "Registration successful",
+    "auth.username": "Username",
+    "auth.usernameRequired": "Please enter username",
+    "auth.usernameMin": "Username must be at least 3 characters",
+    "auth.usernameMax": "Username must be at most 20 characters",
+    "auth.usernamePattern": "Only letters, numbers, and underscores",
+    "auth.usernamePlaceholder": "3-20 letters, numbers, or underscores",
+    "auth.identifier": "Username or Email",
+    "auth.identifierRequired": "Please enter username or email",
+    "auth.identifierPlaceholder": "Username or Email",
+    "auth.email": "Email",
+    "auth.emailRequired": "Please enter email",
+    "auth.emailInvalid": "Invalid email format",
+    "auth.emailPlaceholder": "your@email.com",
+    "auth.password": "Password",
+    "auth.passwordRequired": "Please enter password",
+    "auth.passwordMin": "Password must be at least 8 characters",
+    "auth.passwordPlaceholderReg": "At least 8 characters",
+    "auth.passwordPlaceholderLog": "Enter password",
+
+    // HomePage
+    "home.subtitle": "Typing Practice · Focus on Writing",
+    "home.categoryTimed": "Timed",
+    "home.categoryPassage": "Passage",
+    "home.zenMode": "∞ Zen Mode",
+    "home.quoteMode": "Random Quote",
+    "home.language": "Language",
+    "home.start": "Press Enter to Start",
+    "home.footerTimed": "timed",
+    "home.footerPassage": "passage",
+
+    // Game
+    "game.back": "← Back",
+    "game.result": "result",
+    "game.peak": "peak",
+    "game.avg": "avg",
+    "game.accuracy": "accuracy",
+    "game.cpm": "cpm",
+    "game.speedCurve": "Speed Curve",
+    "game.elapsed": "{m}min {s}s",
+    "game.shareHeader": "NLType Result",
+    "game.shareWpm": "WPM: {wpm} | Accuracy: {acc}%",
+    "game.shareCpm": "CPM: {cpm} | RAW: {raw}",
+    "game.shareCorrect": "Correct: {correct} | Wrong: {incorrect}",
+    "game.shareTime": "Time: {m}min {s}s",
+    "game.sharePeak": "Peak: {peak} WPM",
+    "game.shareFooter": "nltype  — typing practice",
+    "game.shareCopied": "Result copied to clipboard",
+    "game.shareFailed": "Copy failed",
+    "game.shareBtn": "Share Result",
+    "game.retry": "Retry",
+    "game.backToLobby": "Back to Lobby",
+    "game.wpm": "wpm",
+    "game.acc": "acc",
+    "game.progress": "progress",
+    "game.time": "time",
+
+    // WpmChart
+    "wpm.waiting": "Waiting for more data...",
+
+    // ProfilePage
+    "profile.notLoggedIn": "Please log in first",
+    "profile.loading": "Loading...",
+    "profile.registeredAt": "Registered · {date}",
+    "profile.stats": "Game Stats",
+    "profile.totalGames": "Total Games",
+    "profile.avgWpm": "Avg WPM",
+    "profile.bestWpm": "Best WPM",
+    "profile.avgAcc": "Avg Accuracy",
+    "profile.totalTime": "Total Time",
+    "profile.noData": "No data",
+    "profile.personalBests": "Personal Bests",
+    "profile.colMode": "Mode",
+    "profile.colWpm": "WPM",
+    "profile.colAcc": "Accuracy",
+    "profile.colDate": "Date",
+    "profile.recentResults": "Recent Results",
+    "profile.colLang": "Lang",
+    "profile.noRecords": "No records",
+
+    // LeaderboardPage
+    "leaderboard.title": "Leaderboard",
+    "leaderboard.loading": "Loading...",
+    "leaderboard.empty": "No records",
+    "leaderboard.startGame": "← Start a Game",
+    "leaderboard.colHash": "#",
+    "leaderboard.colUser": "User",
+    "leaderboard.colWpm": "wpm",
+    "leaderboard.colAcc": "acc",
+    "leaderboard.colMode": "mode",
+    "leaderboard.clear": "Clear Records",
+    "leaderboard.backToGame": "← Back to Game",
+    "leaderboard.confirmClear": "Clear all records?",
+
+    // EntriesPage
+    "entries.notLoggedIn": "Please log in first",
+    "entries.title": "Entry Management",
+    "entries.tabSubmit": "Submit",
+    "entries.tabMine": "My Submissions",
+    "entries.tabReview": "Review",
+    "entries.language": "Language",
+    "entries.content": "Content",
+    "entries.placeholder": "Paste or type entry content here…\n\nEnglish: one word per line\nChinese: paste Chinese text\nCode: paste code snippet",
+    "entries.charCount": "{n} / 10000",
+    "entries.submitting": "Submitting…",
+    "entries.submit": "Submit Entry",
+    "entries.submitInfo": "Submissions require review by an admin or developer",
+    "entries.loading": "Loading...",
+    "entries.emptyMine": "No submissions yet",
+    "entries.emptyReview": "No entries pending review",
+    "entries.approve": "Approve",
+    "entries.reject": "Reject",
+    "entries.minLengthError": "Content must be at least 10 characters",
+    "entries.submitOk": "Submission successful, pending review",
+    "entries.reviewApproved": "Approved",
+    "entries.reviewRejected": "Rejected",
+    "entries.statusPending": "Pending",
+    "entries.statusApproved": "Approved",
+    "entries.statusRejected": "Rejected",
+
+    // DeveloperPage
+    "dev.noPermission": "No permission",
+    "dev.badge": "DEV",
+    "dev.title": "Developer Panel",
+    "dev.tabUsers": "User Management",
+    "dev.tabSystem": "System Info",
+    "dev.loading": "Loading...",
+    "dev.searchPlaceholder": "Search username or email...",
+    "dev.colHash": "#",
+    "dev.colUserEmail": "Username / Email",
+    "dev.colRole": "Role",
+    "dev.colActions": "Actions",
+    "dev.noAction": "—",
+    "dev.currentUser": "Current User",
+    "dev.roleUpdated": "Role updated to {role}",
+    "dev.statTotalUsers": "Total Users",
+    "dev.statTotalGames": "Total Games",
+    "dev.statTopWpm": "Top WPM",
+    "dev.statAvgWpm": "Avg WPM",
+    "dev.sectionServer": "Server Info",
+    "dev.sectionModeDist": "Mode Distribution",
+    "dev.serverApi": "API URL",
+    "dev.serverUsers": "User Storage",
+    "dev.serverResults": "Results Storage",
+    "dev.serverAuth": "Auth Method",
+    "dev.serverCors": "CORS Origin",
+
+    // AdminPage
+    "admin.noPermission": "No permission",
+    "admin.title": "Admin Panel",
+    "admin.tabDashboard": "Dashboard",
+    "admin.tabUsers": "User Management",
+    "admin.loading": "Loading...",
+    "admin.statTotalUsers": "Total Users",
+    "admin.statTotalGames": "Total Games",
+    "admin.statTopWpm": "Top WPM",
+    "admin.statAvgWpm": "Avg WPM",
+    "admin.sectionModeDist": "Mode Distribution",
+    "admin.sectionLangDist": "Language Distribution",
+    "admin.clearAll": "Clear All Results",
+    "admin.confirmClear": "Clear all game results?",
+    "admin.clearSuccess": "Cleared",
+    "admin.colHash": "#",
+    "admin.colUsername": "Username",
+    "admin.colRole": "Role",
+    "admin.colCreatedAt": "Registered",
+    "admin.emptyUsers": "No users",
+
+    // permissions
+    "role.guest": "Guest",
+    "role.user": "User",
+    "role.admin": "Admin",
+    "role.developer": "Developer",
+
+    // game mode labels
+    "mode.time": "Timed",
+    "mode.zen": "Zen",
+    "mode.words": "Words",
+    "mode.quote": "Quote",
+    "mode.code": "Code",
+
+    // language labels
+    "lang.en": "EN",
+    "lang.zh": "ZH",
+    "lang.code": "Code",
+
+    // NavBar language dropdown
+    "langDropdown.en": "English",
+    "langDropdown.zh": "Chinese",
+    "langDropdown.code": "Code",
+
+    // general
+    "general.seconds": "s",
+    "general.words": "w",
+    "general.quote": "quote",
+  },
+};
+
+function tpl(t: string, vars?: Record<string, string | number>): string {
+  if (!vars) return t;
+  return t.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
+}
+
+interface I18nCtx {
+  lang: UILang;
+  setLang: (l: UILang) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}
+
+const Ctx = createContext<I18nCtx>({
+  lang: "zh",
+  setLang: () => {},
+  t: (k, vars) => tpl(dict.zh[k] ?? k, vars),
+});
+
+export function I18nProvider({ children }: { children: React.ReactNode }) {
+  const [lang, setLang] = useState<UILang>(() => load<UILang>(UI_LANG_KEY, "zh"));
+
+  useEffect(() => {
+    save(UI_LANG_KEY, lang);
+  }, [lang]);
+
+  const t = useCallback(
+    (key: string, vars?: Record<string, string | number>) => tpl(dict[lang]?.[key] ?? key, vars),
+    [lang],
+  );
+
+  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+}
+
+export function useI18n() {
+  return useContext(Ctx);
+}
