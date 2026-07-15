@@ -121,8 +121,9 @@ export default function NavBar() {
         <Dropdown
           droplist={
             <Menu onClickMenuItem={(key) => setUILang(key as UILang)}>
-              <Menu.Item key="zh">{uiLang === "zh" ? "✓ " : ""}中文</Menu.Item>
-              <Menu.Item key="en">{uiLang === "en" ? "✓ " : ""}EN</Menu.Item>
+              {(["zh", "en"] as const).map((l) => (
+                <Menu.Item key={l}>{uiLang === l ? "✓ " : ""}{l === "zh" ? "中文" : "EN"}</Menu.Item>
+              ))}
             </Menu>
           }
           trigger="click"
