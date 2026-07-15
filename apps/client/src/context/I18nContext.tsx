@@ -1,7 +1,7 @@
 import { createContext, useContext, useCallback, useState, useEffect } from "react";
 import { load, save } from "../services/storage";
 
-type UILang = "zh" | "en";
+export type UILang = "zh" | "en";
 const UI_LANG_KEY = "ui-lang";
 
 export const dict: Record<UILang, Record<string, string>> = {

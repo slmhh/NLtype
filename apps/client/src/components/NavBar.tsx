@@ -8,6 +8,7 @@ import { useI18n } from "../context/I18nContext";
 import AuthModal from "./AuthModal";
 import PermissionGuard from "./PermissionGuard";
 import type { Language } from "../types/game";
+import type { UILang } from "../context/I18nContext";
 
 export default function NavBar() {
   const location = useLocation();
@@ -116,13 +117,21 @@ export default function NavBar() {
           )}
         </div>
 
-        {/* UI language toggle */}
-        <button
-          onClick={() => setUILang(uiLang === "zh" ? "en" : "zh")}
-          className="text-xs font-mono tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
+        {/* UI language dropdown */}
+        <Dropdown
+          droplist={
+            <Menu onClickMenuItem={(key) => setUILang(key as UILang)}>
+              <Menu.Item key="zh">{uiLang === "zh" ? "✓ " : ""}中文</Menu.Item>
+              <Menu.Item key="en">{uiLang === "en" ? "✓ " : ""}EN</Menu.Item>
+            </Menu>
+          }
+          trigger="click"
+          position="br"
         >
-          {uiLang === "zh" ? "EN" : "中"}
-        </button>
+          <button className="text-xs font-mono tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">
+            {uiLang === "zh" ? "中" : "EN"}
+          </button>
+        </Dropdown>
 
         {/* Theme toggle */}
         <button

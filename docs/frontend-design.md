@@ -296,7 +296,7 @@ pages/          ← 页面级组件，有路由
 components/     ← 可复用 UI 组件
   NavBar          (#导航) → 消费 ThemeContext, LanguageContext
   TypingGame      (#游戏壳) → 组合 TypingDisplay + StatsBar + ProgressBar + ResultModal
-  TypingDisplay   (#文本展示) → 纯展示，接收 chars[] + currentIndex
+  TypingDisplay   (#文本展示) → 纯展示，接收 chars[] + curren tIndex
 context/        ← React Context
 hooks/          ← 自定义 Hooks（引擎、计时器）
 services/       ← 数据存取抽象
