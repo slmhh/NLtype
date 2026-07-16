@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { useI18n } from "../context/I18nContext";
 import type { GameConfig, GameCategory, GameMode, Language } from "../types/game";
-import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, defaultConfig } from "../types/game";
+import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, defaultConfig, sanitizeCustomText } from "../types/game";
 
 export type { GameConfig, GameMode, Language } from "../types/game";
 
@@ -16,34 +16,74 @@ export default function HomePage() {
   const [mode, setMode] = useState<GameMode>(config.mode);
   const [timeLimit, setTimeLimit] = useState(config.timeLimit);
   const [wordCount, setWordCount] = useState(config.wordCount);
+  const [customText, setCustomText] = useState("");
+  const [customError, setCustomError] = useState("");
+  const [customTimerEnabled, setCustomTimerEnabled] = useState(false);
+  const [customTimeLimit, setCustomTimeLimit] = useState(30);
+  const [timeInputStr, setTimeInputStr] = useState("30");
   const [mounted, setMounted] = useState(false);
   const readyRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeModes = category === "timed" ? TIMED_MODES : PASSAGE_MODES;
 
-  const configRef = useRef({ category, mode, language, timeLimit, wordCount });
-  configRef.current = { category, mode, language, timeLimit, wordCount };
+  const timerLimit = customTimerEnabled ? customTimeLimit : 0;
+
+  const configRef = useRef({ category, mode, language, timeLimit, wordCount, customText: "" });
+  configRef.current = { category, mode, language, timeLimit: timerLimit, wordCount, customText };
 
   useEffect(() => { setMounted(true); }, []);
 
-  const handleStart = () => {
+  const validateTimeLimit = useCallback((val: number): string | null => {
+    if (!customTimerEnabled) return null;
+    if (!Number.isInteger(val) || val <= 0) return t("home.customTimerInvalid");
+    if (val > 3600) return t("home.customTimerMax", { max: 3600 });
+    return null;
+  }, [customTimerEnabled, t]);
+
+  const handleStart = useCallback(() => {
     if (readyRef.current) return;
+    if (category === "custom") {
+      const sanitized = sanitizeCustomText(customText);
+      if (!sanitized) {
+        setCustomError(t("home.customEmpty"));
+        return;
+      }
+      const timeErr = validateTimeLimit(customTimeLimit);
+      if (timeErr) {
+        setCustomError(timeErr);
+        return;
+      }
+      setCustomError("");
+      readyRef.current = true;
+      navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: timerLimit } } });
+      return;
+    }
     readyRef.current = true;
     navigate("/game", { state: { config: configRef.current } });
-  };
+  }, [category, customText, customTimeLimit, timerLimit, navigate, t, validateTimeLimit]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || readyRef.current) return;
-      readyRef.current = true;
-      navigate("/game", { state: { config: configRef.current } });
+      if (category === "custom") {
+        const sanitized = sanitizeCustomText(customText);
+        if (!sanitized) return;
+        const timeErr = validateTimeLimit(customTimeLimit);
+        if (timeErr) return;
+        readyRef.current = true;
+        navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: timerLimit } } });
+      } else {
+        readyRef.current = true;
+        navigate("/game", { state: { config: configRef.current } });
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [navigate]);
+  }, [navigate, category, customText, customTimeLimit, timerLimit, validateTimeLimit]);
 
   useEffect(() => {
-    if (category !== configRef.current.category) {
+    if (category !== "custom" && category !== configRef.current.category) {
       const first = activeModes[0];
       if (first) setMode(first.id);
     }
@@ -83,64 +123,162 @@ export default function HomePage() {
             }`}>
             {t("home.categoryPassage")}
           </button>
+          <button onClick={() => setCategory("custom")}
+            className={`px-5 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all font-mono ${
+              category === "custom"
+                ? "bg-[var(--accent)] text-white shadow-sm"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+            }`}>
+            {t("home.categoryCustom")}
+          </button>
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {activeModes.map((m) => (
-            <button key={m.id}
-              onClick={() => setMode(m.id)}
-              className={`px-4 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all duration-200 font-mono ${
-                mode === m.id
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}>
-              {t(`mode.${m.id}`)}
-            </button>
-          ))}
-        </div>
-
-        <div className="h-px bg-[var(--border)] mb-6" />
-
-        {/* Options */}
-        <div className="flex items-center justify-center gap-3 min-h-[38px] mb-8">
-          {mode === "time" && TIME_OPTIONS.map((t) => (
-            <button key={t} onClick={() => setTimeLimit(t)}
-              className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
-                timeLimit === t ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}>
-              {t}s
-            </button>
-          ))}
-          {mode === "words" && WORD_OPTIONS.map((n) => (
-            <button key={n} onClick={() => setWordCount(n)}
-              className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
-                wordCount === n ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}>
-              {n}
-            </button>
-          ))}
-          {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.zenMode")}</span>}
-          {mode === "quote" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.quoteMode")}</span>}
-        </div>
-
-        {/* Language */}
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{t("home.language")}</span>
-          <div className="flex items-center gap-1.5">
-            {LANGUAGES.map((l, i) => (
-              <span key={l.id}>
-                <button onClick={() => setLanguage(l.id)}
-                  className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
-                    language === l.id ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  }`}>
-                  {t(`lang.${l.id}`)}
-                </button>
-                {i < LANGUAGES.length - 1 && <span className="text-[var(--border)] text-xs mx-1">/</span>}
+        {category === "custom" ? (
+          <div className="mb-6">
+            <textarea
+              ref={textareaRef}
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              placeholder={t("home.customPlaceholder")}
+              className="w-full h-40 p-4 rounded-xl bg-[var(--bg-alt)] border border-[var(--border)] text-sm font-mono resize-none focus:outline-none focus:border-[var(--accent)] transition-colors"
+              maxLength={5000}
+            />
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-[var(--text-tertiary)]">
+                {customText.length}/5000
               </span>
-            ))}
+              <span className="text-xs text-[var(--text-tertiary)]">
+                {t("home.customNote")}
+              </span>
+            </div>
+            {customError && (
+              <p className="text-red-500 text-xs mt-2">{customError}</p>
+            )}
+
+            {/* Timer toggle for custom mode */}
+            <div className="mt-4 flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={customTimerEnabled}
+                  onChange={(e) => setCustomTimerEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                />
+                <span className="text-sm text-[var(--text-secondary)] tracking-[0.05em]">
+                  {t("home.customTimerLabel")}
+                </span>
+              </label>
+            </div>
+
+            {customTimerEnabled && (
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const next = Math.max(1, customTimeLimit - 5);
+                      setCustomTimeLimit(next);
+                      setTimeInputStr(String(next));
+                    }}
+                    className="w-8 h-8 rounded-lg bg-[var(--bg-alt)] border border-[var(--border)] text-sm hover:border-[var(--accent)] transition-colors"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    value={timeInputStr}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setTimeInputStr(raw);
+                      const n = parseInt(raw, 10);
+                      if (!isNaN(n) && n >= 1 && n <= 3600) {
+                        setCustomTimeLimit(n);
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(timeInputStr, 10);
+                      if (isNaN(n) || n < 1) { setCustomTimeLimit(1); setTimeInputStr("1"); }
+                      else if (n > 3600) { setCustomTimeLimit(3600); setTimeInputStr("3600"); }
+                      else { setCustomTimeLimit(n); setTimeInputStr(String(n)); }
+                    }}
+                    className="w-16 h-8 text-center rounded-lg bg-[var(--bg-alt)] border border-[var(--border)] text-sm font-mono focus:outline-none focus:border-[var(--accent)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    min={1}
+                    max={3600}
+                  />
+                  <button
+                    onClick={() => {
+                      const next = Math.min(3600, customTimeLimit + 5);
+                      setCustomTimeLimit(next);
+                      setTimeInputStr(String(next));
+                    }}
+                    className="w-8 h-8 rounded-lg bg-[var(--bg-alt)] border border-[var(--border)] text-sm hover:border-[var(--accent)] transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="text-xs text-[var(--text-tertiary)]">{t("home.customTimerUnit")}</span>
+              </div>
+            )}
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Mode tabs */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {activeModes.map((m) => (
+                <button key={m.id}
+                  onClick={() => setMode(m.id)}
+                  className={`px-4 py-1.5 text-sm tracking-[0.15em] rounded-full transition-all duration-200 font-mono ${
+                    mode === m.id
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                      : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  }`}>
+                  {t(`mode.${m.id}`)}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-px bg-[var(--border)] mb-6" />
+
+            {/* Options */}
+            <div className="flex items-center justify-center gap-3 min-h-[38px] mb-8">
+              {mode === "time" && TIME_OPTIONS.map((t) => (
+                <button key={t} onClick={() => setTimeLimit(t)}
+                  className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
+                    timeLimit === t ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  }`}>
+                  {t}s
+                </button>
+              ))}
+              {mode === "words" && WORD_OPTIONS.map((n) => (
+                <button key={n} onClick={() => setWordCount(n)}
+                  className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
+                    wordCount === n ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  }`}>
+                  {n}
+                </button>
+              ))}
+              {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.zenMode")}</span>}
+              {mode === "quote" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.quoteMode")}</span>}
+            </div>
+
+            {/* Language */}
+            <div className="flex items-center justify-center gap-4 mb-8">
+              <span className="text-[var(--text-tertiary)] text-xs tracking-[0.15em] uppercase">{t("home.language")}</span>
+              <div className="flex items-center gap-1.5">
+                {LANGUAGES.map((l, i) => (
+                  <span key={l.id}>
+                    <button onClick={() => setLanguage(l.id)}
+                      className={`px-4 py-1.5 text-sm tracking-wider rounded-lg transition-all font-mono ${
+                        language === l.id ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                      }`}>
+                      {t(`lang.${l.id}`)}
+                    </button>
+                    {i < LANGUAGES.length - 1 && <span className="text-[var(--border)] text-xs mx-1">/</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Start */}
         <button onClick={handleStart}
@@ -152,8 +290,8 @@ export default function HomePage() {
       {/* Footer */}
       <p className="fixed bottom-6 text-[var(--text-tertiary)] text-xs tracking-[0.2em]">
         {t(`lang.${language}`)} ·{" "}
-        {language !== "code" && (mode === "time" ? `${timeLimit}${t("general.seconds")}` : mode === "words" ? `${wordCount}${t("general.words")}` : mode === "quote" ? t("general.quote") : mode) + " · "}
-        {category === "timed" ? t("home.footerTimed") : t("home.footerPassage")}
+        {category === "custom" ? t("home.categoryCustom") : language !== "code" ? (mode === "time" ? `${timeLimit}${t("general.seconds")}` : mode === "words" ? `${wordCount}${t("general.words")}` : mode === "quote" ? t("general.quote") : t(`mode.${mode}`)) + " · " : ""}
+        {category === "timed" ? t("home.footerTimed") : category === "passage" ? t("home.footerPassage") : ""}
       </p>
     </div>
   );

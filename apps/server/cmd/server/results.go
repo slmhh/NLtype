@@ -95,7 +95,7 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Invalid request body")
 		return
 	}
-	validModes := map[string]bool{"time": true, "words": true, "quote": true, "code": true, "zen": true}
+	validModes := map[string]bool{"time": true, "words": true, "quote": true, "code": true, "zen": true, "custom": true}
 	validLangs := map[string]bool{"en": true, "zh": true, "code": true}
 
 	if !validModes[body.Mode] {

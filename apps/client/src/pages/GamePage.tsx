@@ -35,6 +35,11 @@ function generateEnglishTime(timeLimit: number, pool?: string[]): string {
 }
 
 function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], codeEntries: string[]): string {
+  // Custom text mode — use pasted text directly
+  if (config.customText) {
+    return config.customText;
+  }
+
   if (config.language === "code") {
     return codeEntries.length > 0 ? pickRandom(codeEntries) : getRandomCodeSnippet();
   }
@@ -54,6 +59,8 @@ function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], 
       return generateEnglishTime(config.timeLimit, pool);
     case "zen":
       return generateEnglishTime(120, pool);
+    default:
+      return generateEnglishTime(30, pool);
   }
 }
 
@@ -94,7 +101,7 @@ export default function GamePage() {
 
   if (!stored || !ready) return null;
 
-  const noTimer = config.mode === "zen" || config.mode === "words" || config.mode === "quote" || config.language === "code";
+  const noTimer = config.mode === "zen" || config.mode === "words" || config.mode === "quote" || config.mode === "custom" || config.language === "code";
 
   return (
     <TypingGame
