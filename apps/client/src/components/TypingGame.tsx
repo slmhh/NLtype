@@ -23,11 +23,13 @@ interface TypingGameProps {
 export default function TypingGame({ text, language, timeLimit, gameConfig, onRetry, onBack }: TypingGameProps) {
   const { token } = useAuth();
   const { t } = useI18n();
-  const [phase, setPhase] = useState<"playing" | "finished">("playing");
+  const [phase, setPhase] = useState<"countdown" | "playing" | "finished">("countdown");
+  const [countdownNum, setCountdownNum] = useState(3);
   const [showResult, setShowResult] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasTimer = timeLimit > 0;
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useKeyboardShortcuts({ Tab: onRetry, Escape: onBack }, phase === "finished" && showResult);
 
@@ -39,6 +41,31 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
   const timer = useTimer(hasTimer ? timeLimit : 0, onTimeUp);
   const timerRef = useRef(timer);
   timerRef.current = timer;
+
+  const startGame = useCallback(() => {
+    setPhase("playing");
+    if (hasTimer) timerRef.current.start();
+    inputRef.current?.focus();
+  }, [hasTimer]);
+
+  useEffect(() => {
+    if (phase !== "countdown") return;
+    countdownRef.current = setInterval(() => {
+      setCountdownNum((prev) => {
+        if (prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          countdownRef.current = null;
+          // transition to playing on next tick
+          setTimeout(() => startGame(), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+    };
+  }, [phase, startGame]);
 
   const onGameFinish = useCallback(() => {
     setPhase("finished");
@@ -55,11 +82,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
 
   useEffect(() => {
     resetTyping(text);
-    if (hasTimer) {
-      timerRef.current.reset(timeLimit);
-      timerRef.current.start();
-    }
-    inputRef.current?.focus();
+    if (hasTimer) timerRef.current.reset(timeLimit);
   }, [text, timeLimit, resetTyping, hasTimer]);
 
   const savedRef = useRef(false);
@@ -119,13 +142,29 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
           </div>
         )}
 
-        <div className="px-6 py-4">
-          {phase === "playing" && (
+        <div className="px-6 py-4 relative">
+          {phase !== "finished" && (
             <TypingDisplay
               chars={typingState.chars}
               currentIndex={typingState.currentIndex}
               isFinished={typingState.isFinished}
             />
+          )}
+
+          {phase === "countdown" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-2xl z-10">
+              <span
+                className="font-bold font-mono transition-all duration-300"
+                style={{
+                  fontSize: countdownNum > 0 ? "8rem" : "5rem",
+                  color: countdownNum > 0 ? "var(--accent)" : "var(--accent-green)",
+                  opacity: 1,
+                  transform: `scale(${countdownNum > 0 ? 1 : 0.9})`,
+                }}
+              >
+                {countdownNum > 0 ? countdownNum : "GO!"}
+              </span>
+            </div>
           )}
         </div>
 
