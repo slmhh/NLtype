@@ -110,6 +110,8 @@ export const dict: Record<UILang, Record<string, string>> = {
     "profile.recentResults": "最近成绩",
     "profile.colLang": "语言",
     "profile.noRecords": "暂无记录",
+    "profile.trend": "WPM/准确率趋势",
+    "profile.accuracy": "准确率",
 
     // LeaderboardPage
     "leaderboard.title": "排行榜",
@@ -370,6 +372,8 @@ export const dict: Record<UILang, Record<string, string>> = {
     "profile.recentResults": "Recent Results",
     "profile.colLang": "Lang",
     "profile.noRecords": "No records",
+    "profile.trend": "WPM / Accuracy Trend",
+    "profile.accuracy": "Accuracy",
 
     // LeaderboardPage
     "leaderboard.title": "Leaderboard",

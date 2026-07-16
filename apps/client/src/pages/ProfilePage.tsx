@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { getResults, getPersonalBests } from "../services/results";
+import { TrendChart } from "../components/TrendChart";
 import type { GameResult, PersonalBest } from "../types/results";
 
 export default function ProfilePage() {
@@ -96,6 +97,14 @@ export default function ProfilePage() {
             <p className="text-[var(--text-tertiary)] text-sm text-center py-4 tracking-wider">{t("profile.noData")}</p>
           )}
         </div>
+
+        {/* Trend chart */}
+        {stats && results.length >= 2 && (
+          <div className="bg-card rounded-2xl shadow-card p-8">
+            <h3 className="text-[var(--text-primary)] text-sm tracking-[0.15em] mb-5">{t("profile.trend")}</h3>
+            <TrendChart results={results} />
+          </div>
+        )}
 
         {/* Personal Bests card */}
         {bests.length > 0 && (
