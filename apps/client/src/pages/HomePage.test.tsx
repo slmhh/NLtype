@@ -22,7 +22,7 @@ vi.mock("../context/I18nContext", () => ({
         "home.categoryTimed": "Timed",
         "home.categoryPassage": "Passage",
         "home.zenMode": "∞ Zen Mode",
-        "home.quoteMode": "Random Quote",
+        "home.quoteMode": "Random Passage",
         "home.language": "Language",
         "home.start": "Press Enter to Start",
         "home.footerTimed": "timed",
@@ -30,13 +30,13 @@ vi.mock("../context/I18nContext", () => ({
         "mode.time": "Timed",
         "mode.zen": "Zen",
         "mode.words": "Words",
-        "mode.quote": "Quote",
+        "mode.quote": "Passage",
         "lang.en": "EN",
         "lang.zh": "ZH",
         "lang.code": "Code",
         "general.seconds": "s",
         "general.words": "w",
-        "general.quote": "quote",
+        "general.quote": "passage",
       };
       return dict[key] ?? key;
     },
@@ -78,10 +78,10 @@ describe("HomePage", () => {
 
   it("switches to passage modes on category click", async () => {
     renderHomePage();
-    fireEvent.click(screen.getByText("Passage"));
+    fireEvent.click(screen.getAllByText("Passage")[0]);
     await waitFor(() => {
       expect(screen.getByText("Words")).toBeTruthy();
-      expect(screen.getByText("Quote")).toBeTruthy();
+      expect(screen.getAllByText("Passage").length).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -95,7 +95,7 @@ describe("HomePage", () => {
 
   it("shows word count options in words mode", () => {
     renderHomePage();
-    fireEvent.click(screen.getByText("Passage"));
+    fireEvent.click(screen.getAllByText("Passage")[0]);
     fireEvent.click(screen.getByText("Words"));
     expect(screen.getByText("10")).toBeTruthy();
     expect(screen.getByText("25")).toBeTruthy();

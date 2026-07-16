@@ -47,7 +47,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "home.categoryTimed": "计时",
     "home.categoryPassage": "文章",
     "home.zenMode": "∞ 无限模式",
-    "home.quoteMode": "随机名言",
+    "home.quoteMode": "随机文章",
     "home.categoryCustom": "自定义",
     "home.customPlaceholder": "粘贴或输入你想练习的文字（纯文本，最长 5000 字符）",
     "home.customEmpty": "请输入要练习的文字",
@@ -209,7 +209,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "mode.time": "计时",
     "mode.zen": "禅",
     "mode.words": "单词",
-    "mode.quote": "引用",
+    "mode.quote": "文章",
     "mode.code": "代码",
     "mode.custom": "自定义",
 
@@ -262,7 +262,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     // general
     "general.seconds": "秒",
     "general.words": "词",
-    "general.quote": "引用",
+    "general.quote": "文章",
   },
 
   en: {
@@ -307,7 +307,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "home.categoryTimed": "Timed",
     "home.categoryPassage": "Passage",
     "home.zenMode": "∞ Zen Mode",
-    "home.quoteMode": "Random Quote",
+    "home.quoteMode": "Random Passage",
     "home.categoryCustom": "Custom",
     "home.customPlaceholder": "Paste or type text to practice (plain text, max 5000 chars)",
     "home.customEmpty": "Enter text to practice",
@@ -469,7 +469,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "mode.time": "Timed",
     "mode.zen": "Zen",
     "mode.words": "Words",
-    "mode.quote": "Quote",
+    "mode.quote": "Passage",
     "mode.code": "Code",
     "mode.custom": "Custom",
 
@@ -522,7 +522,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     // general
     "general.seconds": "s",
     "general.words": "w",
-    "general.quote": "quote",
+    "general.quote": "passage",
   },
 };
 
