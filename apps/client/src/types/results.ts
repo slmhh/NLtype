@@ -36,3 +36,26 @@ export interface LeaderboardEntry {
   langLabel: string;
   date: string;
 }
+
+export interface TypingEvent {
+  charIndex: number;
+  expectedChar: string;
+  typedChar: string;
+  latencyMs: number;
+  isCorrect?: boolean;
+  elapsedMs: number;
+}
+
+export interface LatencyBucket {
+  label: string;
+  count: number;
+}
+
+export interface ResultStats {
+  totalEvents: number;
+  avgLatencyMs: number;
+  maxLatencyMs: number;
+  latencyBuckets: LatencyBucket[];
+  errorMap: Record<string, number>;
+  keyFrequency: Record<string, number>;
+}

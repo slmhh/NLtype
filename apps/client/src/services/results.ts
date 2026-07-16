@@ -1,4 +1,4 @@
-import type { GameResult, LeaderboardEntry, PersonalBest } from "../types/results";
+import type { GameResult, LeaderboardEntry, PersonalBest, TypingEvent, ResultStats } from "../types/results";
 import type { GameConfig } from "../types/game";
 import { load, save } from "./storage";
 import { api } from "./api";
@@ -43,6 +43,7 @@ export async function saveResult(
   config: GameConfig,
   stats: Omit<GameResult, "id" | "createdAt" | "mode" | "language" | "durationSec"> & { durationSec: number },
   token?: string | null,
+  events?: TypingEvent[],
 ): Promise<GameResult> {
   if (token) {
     const data = await api<{ result: any }>("/api/results", {
@@ -57,6 +58,7 @@ export async function saveResult(
         correctCount: stats.correctCount,
         incorrectCount: stats.incorrectCount,
         durationSec: stats.durationSec,
+        events,
       },
       token,
     });
@@ -124,6 +126,22 @@ export async function getLeaderboard(limit = 20, _token?: string | null, after?:
     langLabel: LANG_LABEL[r.language] ?? r.language,
     date: new Date(r.createdAt).toLocaleDateString(),
   }));
+}
+
+/** Fetch aggregated stats + events for a specific result */
+export async function getResultStats(
+  resultId: number,
+  token: string,
+): Promise<{ stats: ResultStats; events: TypingEvent[] } | null> {
+  try {
+    const data = await api<{ stats: ResultStats; events: TypingEvent[] }>(
+      `/api/results/${resultId}/stats`,
+      { token },
+    );
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 /** Clear results — uses API when authenticated, localStorage otherwise */

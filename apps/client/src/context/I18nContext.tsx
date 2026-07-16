@@ -71,6 +71,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "game.shareFooter": "nltype  — 打字练习",
     "game.shareCopied": "结果已复制到剪贴板",
     "game.shareFailed": "复制失败",
+    "game.detailStats": "详细统计",
     "game.shareBtn": "分享结果",
     "game.retry": "再来一局",
     "game.backToLobby": "返回大厅",
@@ -240,6 +241,15 @@ export const dict: Record<UILang, Record<string, string>> = {
     "leaderboard.filterBefore": "截止日期",
     "leaderboard.filterClear": "清除筛选",
 
+    // Stats detail
+    "stats.detailTitle": "详细统计",
+    "stats.heatmap": "键盘热力图",
+    "stats.latency": "延迟分布",
+    "stats.errors": "错误分析",
+    "stats.avgLatency": "平均延迟",
+    "stats.maxLatency": "最大延迟",
+    "stats.events": "按键事件",
+
     // general
     "general.seconds": "秒",
     "general.words": "词",
@@ -312,6 +322,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "game.shareFooter": "nltype  — typing practice",
     "game.shareCopied": "Result copied to clipboard",
     "game.shareFailed": "Copy failed",
+    "game.detailStats": "Detailed Statistics",
     "game.shareBtn": "Share Result",
     "game.retry": "Retry",
     "game.backToLobby": "Back to Lobby",
@@ -480,6 +491,15 @@ export const dict: Record<UILang, Record<string, string>> = {
     "leaderboard.filterAfter": "From",
     "leaderboard.filterBefore": "To",
     "leaderboard.filterClear": "Clear Filters",
+
+    // Stats detail
+    "stats.detailTitle": "Detailed Statistics",
+    "stats.heatmap": "Keyboard Heatmap",
+    "stats.latency": "Latency Distribution",
+    "stats.errors": "Error Analysis",
+    "stats.avgLatency": "Avg Latency",
+    "stats.maxLatency": "Max Latency",
+    "stats.events": "Key Events",
 
     // general
     "general.seconds": "s",

@@ -5,6 +5,7 @@ import { useTimer } from "../hooks/useTimer";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { TypingDisplay } from "./TypingDisplay";
 import { WpmChart } from "./WpmChart";
+import { TypingStatsModal } from "./TypingStatsModal";
 import type { GameConfig, Language } from "../types/game";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
@@ -24,6 +25,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
   const { t } = useI18n();
   const [phase, setPhase] = useState<"playing" | "finished">("playing");
   const [showResult, setShowResult] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasTimer = timeLimit > 0;
 
@@ -61,6 +63,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
   }, [text, timeLimit, resetTyping, hasTimer]);
 
   const savedRef = useRef(false);
+  const lastResultId = useRef<string | null>(null);
   useEffect(() => {
     if (phase === "finished" && !savedRef.current) {
       savedRef.current = true;
@@ -72,7 +75,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         correctCount: typingState.correctCount,
         incorrectCount: typingState.incorrectCount,
         durationSec: Math.round(typingState.elapsedMs / 1000),
-      }, token);
+      }, token, typingState.events).then((r) => { lastResultId.current = r.id; });
     }
   }, [phase, typingState, gameConfig, token]);
 
@@ -223,6 +226,14 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
              {t("game.shareBtn")}
           </button>
 
+          {token && lastResultId.current && (
+            <button onClick={() => setShowStatsModal(true)}
+              className="w-full mb-4 py-2 rounded-xl text-xs tracking-[0.15em] border border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all"
+            >
+              {t("game.detailStats")}
+            </button>
+          )}
+
           <div className="flex gap-2.5">
             <Button type="primary" long onClick={onRetry}
               className="!rounded-xl !text-sm !tracking-wider !uppercase !font-semibold !h-11">
@@ -235,6 +246,12 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
           </div>
         </div>
       </Modal>
+
+      <TypingStatsModal
+        visible={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+        resultId={lastResultId.current ?? ""}
+      />
     </div>
   );
 }

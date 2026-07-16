@@ -86,6 +86,23 @@ var migrations = []migration{
 			);
 			ALTER TABLE users ADD COLUMN settings TEXT NOT NULL DEFAULT '{}';`,
 	},
+	{
+		version: 4,
+		desc:    "add typing_events table for per-key analytics",
+		sql: `
+			CREATE TABLE IF NOT EXISTS typing_events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				result_id INTEGER NOT NULL,
+				char_index INTEGER NOT NULL,
+				expected_char TEXT NOT NULL,
+				typed_char TEXT NOT NULL,
+				latency_ms INTEGER NOT NULL DEFAULT 0,
+				is_correct INTEGER NOT NULL,
+				elapsed_ms INTEGER NOT NULL DEFAULT 0,
+				FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_typing_events_result ON typing_events(result_id);`,
+	},
 }
 
 func initDB(dir string) error {

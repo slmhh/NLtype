@@ -6,6 +6,14 @@ export interface CharResult {
   status: "pending" | "correct" | "incorrect";
 }
 
+export interface TypingEvent {
+  charIndex: number;
+  expectedChar: string;
+  typedChar: string;
+  latencyMs: number;
+  elapsedMs: number;
+}
+
 export interface TypingState {
   chars: CharResult[];
   currentIndex: number;
@@ -18,6 +26,7 @@ export interface TypingState {
   elapsedMs: number;
   isFinished: boolean;
   wpmHistory: number[];
+  events: TypingEvent[];
 }
 
 interface UseTypingEngineOptions {
@@ -40,6 +49,7 @@ function initState(text: string): TypingState {
     elapsedMs: 0,
     isFinished: false,
     wpmHistory: [],
+    events: [],
   };
 }
 
@@ -68,6 +78,7 @@ export function useTypingEngine({
   onFinishRef.current = onFinish;
   const isComposingRef = useRef(false);
   const startTimeRef = useRef<number | null>(null);
+  const lastKeyTimeRef = useRef<number | null>(null);
   const hasChineseRef = useRef(false);
   hasChineseRef.current = language === "zh" || /[\u4e00-\u9fff]/.test(text);
 
@@ -90,6 +101,9 @@ export function useTypingEngine({
   /** Always advance one position; stores both expected and typed char */
   const advance = useCallback(
     (charTyped: string, expected: string) => {
+      const now = Date.now();
+      const keyLatency = lastKeyTimeRef.current === null ? 0 : now - lastKeyTimeRef.current;
+      lastKeyTimeRef.current = now;
       setState((prev) => {
         if (prev.isFinished) return prev;
         const isCorrect = charTyped === expected;
@@ -109,6 +123,13 @@ export function useTypingEngine({
         const newCorrect = prev.correctCount + (isCorrect ? 1 : 0);
         const newIncorrect = prev.incorrectCount + (isCorrect ? 0 : 1);
         const stats = deriveStats(newCorrect, newIncorrect, elapsed);
+        const event: TypingEvent = {
+          charIndex: idx,
+          expectedChar: expected,
+          typedChar: charTyped,
+          latencyMs: keyLatency,
+          elapsedMs: elapsed,
+        };
         return {
           ...prev,
           chars: newChars,
@@ -119,6 +140,7 @@ export function useTypingEngine({
           ...stats,
           wpmHistory: [...prev.wpmHistory, stats.wpm],
           isFinished: finished,
+          events: [...prev.events, event],
         };
       });
     },
