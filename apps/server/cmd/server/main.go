@@ -355,41 +355,63 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	// Public routes
 	mux.HandleFunc("GET /api/health", healthHandler)
+	mux.HandleFunc("GET /api/text/words", wordsHandler)
 	mux.HandleFunc("GET /api/text/english", englishHandler)
 	mux.HandleFunc("GET /api/text/chinese", chineseHandler)
 
 	mux.HandleFunc("POST /api/auth/register", handleRegister)
 	mux.HandleFunc("POST /api/auth/login", handleLogin)
-	mux.HandleFunc("POST /api/auth/logout", handleLogout)
-	mux.HandleFunc("GET /api/auth/me", handleMe)
 	mux.HandleFunc("POST /api/auth/forgot-password", handleForgotPassword)
 	mux.HandleFunc("POST /api/auth/reset-password", handleResetPassword)
 	mux.HandleFunc("GET /api/auth/verify-email", handleVerifyEmail)
-	mux.HandleFunc("POST /api/auth/send-verification", handleSendVerification)
-	mux.HandleFunc("GET /api/auth/settings", handleGetSettings)
-	mux.HandleFunc("PATCH /api/auth/settings", handleUpdateSettings)
-	mux.HandleFunc("GET /api/auth/users", handleListUsers)
-	mux.HandleFunc("PATCH /api/auth/users/{id}/role", handleUpdateRole)
 
-	mux.HandleFunc("POST /api/results", handleCreateResult)
-	mux.HandleFunc("GET /api/results", handleGetResults)
-	mux.HandleFunc("GET /api/results/best", handlePersonalBests)
-	mux.HandleFunc("GET /api/results/leaderboard", handleLeaderboard)
-	mux.HandleFunc("DELETE /api/results", handleClearResults)
-	mux.HandleFunc("GET /api/results/{id}/stats", handleResultStats)
-
-	mux.HandleFunc("POST /api/entries", handleCreateEntry)
-	mux.HandleFunc("GET /api/entries", handleListEntries)
 	mux.HandleFunc("GET /api/entries/approved", handleApprovedEntries)
-	mux.HandleFunc("PATCH /api/entries/{id}/review", handleReviewEntry)
-
-	mux.HandleFunc("GET /api/admin/stats", handleAdminStats)
-
-	// Daily challenge
 	mux.HandleFunc("GET /api/daily", handleDailyChallenge)
-	mux.HandleFunc("POST /api/daily/attempt", handleSubmitDailyAttempt)
 	mux.HandleFunc("GET /api/daily/leaderboard", handleDailyLeaderboard)
+	mux.HandleFunc("GET /api/results/leaderboard", handleLeaderboard)
+
+	// Auth-required routes
+	auth := newGroup("/api/auth", requireAuth)
+	auth.register(mux, "GET /me", handleMe)
+	auth.register(mux, "POST /logout", handleLogout)
+	auth.register(mux, "POST /send-verification", handleSendVerification)
+	auth.register(mux, "GET /settings", handleGetSettings)
+	auth.register(mux, "PATCH /settings", handleUpdateSettings)
+
+	// Admin/developer routes
+	admin := newGroup("/api/auth", requireRole("admin", "developer"))
+	admin.register(mux, "GET /users", handleListUsers)
+	admin.register(mux, "PATCH /users/{id}/role", handleUpdateRole)
+
+	mux.Handle("GET /api/admin/stats", requireAuth(http.HandlerFunc(handleAdminStats)))
+	mux.Handle("DELETE /api/results", requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := getAuthUser(r)
+		if claims == nil || !hasPermission(Role(claims.Role), "admin:panel") {
+			writeError(w, 403, "Insufficient permissions")
+			return
+		}
+		resultsRepo.DeleteAll()
+		writeJSON(w, 200, map[string]any{"ok": true})
+	}))
+
+	// Result routes (auth required)
+	resultGroup := newGroup("/api/results", requireAuth)
+	resultGroup.register(mux, "POST /", handleCreateResult)
+	resultGroup.register(mux, "GET /", handleGetResults)
+	resultGroup.register(mux, "GET /best", handlePersonalBests)
+	resultGroup.register(mux, "GET /{id}/stats", handleResultStats)
+
+	// Entry routes (auth required)
+	entryGroup := newGroup("/api/entries", requireAuth)
+	entryGroup.register(mux, "POST /", handleCreateEntry)
+	entryGroup.register(mux, "GET /", handleListEntries)
+	entryGroup.register(mux, "PATCH /{id}/review", handleReviewEntry)
+
+	// Daily challenge (auth required)
+	dailyGroup := newGroup("/api/daily", requireAuth)
+	dailyGroup.register(mux, "POST /attempt", handleSubmitDailyAttempt)
 
 	// SPA fallback for all non-API routes
 	mux.HandleFunc("/", spaFileServer)

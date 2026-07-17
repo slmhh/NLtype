@@ -24,6 +24,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
 
+func wordsHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, map[string]any{"words": words})
+}
+
 func englishHandler(w http.ResponseWriter, r *http.Request) {
 	const targetLen = 200
 	var selected []string

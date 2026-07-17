@@ -45,7 +45,7 @@ func modeLabel(m string) string {
 	case "code":
 		return "‰ª£Á†Å"
 	case "zen":
-		return "Á¶?
+		return "ÔøΩ?
 	}
 	return m
 }
@@ -433,7 +433,7 @@ func handleResultStats(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if correct == 0 {
-			errorMap[fmt.Sprintf("%s‚Ü?s", exp, typed)]++
+			errorMap[fmt.Sprintf("%sÔøΩ?s", exp, typed)]++
 		}
 
 		events = append(events, map[string]any{
@@ -468,12 +468,4 @@ func handleResultStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"stats": stats, "events": events})
 }
 
-func handleClearResults(w http.ResponseWriter, r *http.Request) {
-	claims := getAuthUser(r)
-	if claims == nil || !hasPermission(Role(claims.Role), "admin:panel") {
-		writeError(w, 403, "Insufficient permissions")
-		return
-	}
-	db.Exec("DELETE FROM results")
-	writeJSON(w, 200, map[string]any{"ok": true})
-}
+

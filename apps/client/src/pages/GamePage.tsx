@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TypingGame from "../components/TypingGame";
-import { englishWords } from "../data/en";
 import { getChineseText } from "../data/zh";
 import { getRandomCodeSnippet } from "../data/code";
 import { getRandomQuote } from "../data/quotes";
@@ -12,29 +11,27 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateEnglishWords(count: number, pool?: string[]): string {
-  const source = pool ?? englishWords;
+function generateEnglishWords(count: number, pool: string[]): string {
   const words: string[] = [];
   for (let i = 0; i < count; i++) {
-    words.push(pickRandom(source));
+    words.push(pickRandom(pool));
   }
   return words.join(" ");
 }
 
-function generateEnglishTime(timeLimit: number, pool?: string[]): string {
-  const source = pool ?? englishWords;
+function generateEnglishTime(timeLimit: number, pool: string[]): string {
   const targetLen = timeLimit <= 15 ? 80 : timeLimit <= 30 ? 200 : timeLimit <= 60 ? 400 : 800;
   const words: string[] = [];
   let len = 0;
   while (len < targetLen) {
-    const w = pickRandom(source);
+    const w = pickRandom(pool);
     words.push(w);
     len += w.length + 1;
   }
   return words.slice(0, -1).join(" ");
 }
 
-function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], codeEntries: string[]): string {
+function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], codeEntries: string[], enWordsFallback: string[]): string {
   // Custom text mode — use pasted text directly
   if (config.customText) {
     return config.customText;
@@ -52,8 +49,8 @@ function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], 
     return zhEntries.length > 0 ? pickRandom(zhEntries) : getChineseText();
   }
 
-  // Build word pool from approved entries or local data
-  const pool = enEntries.length > 0 ? enEntries.flatMap((e) => e.split(/\s+/).filter(Boolean)) : englishWords;
+  // Build word pool from approved entries or server fallback
+  const pool = enEntries.length > 0 ? enEntries.flatMap((e) => e.split(/\s+/).filter(Boolean)) : enWordsFallback;
 
   switch (config.mode) {
     case "quote":
@@ -77,6 +74,7 @@ export default function GamePage() {
   const [enEntries, setEnEntries] = useState<string[]>([]);
   const [zhEntries, setZhEntries] = useState<string[]>([]);
   const [codeEntries, setCodeEntries] = useState<string[]>([]);
+  const [enWordsFallback, setEnWordsFallback] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -86,16 +84,21 @@ export default function GamePage() {
     const codePromise = stored.codeLang
       ? getApprovedEntries("code", stored.codeLang).then((entries) => entries.map((e) => e.content))
       : Promise.resolve<string[]>([]);
-    Promise.all([enPromise, zhPromise, codePromise]).then(([en, zh, code]) => {
+    const wordsPromise = fetch("/api/text/words")
+      .then((r) => r.json())
+      .then((d: { words: string[] }) => d.words)
+      .catch(() => [] as string[]);
+    Promise.all([enPromise, zhPromise, codePromise, wordsPromise]).then(([en, zh, code, words]) => {
       setEnEntries(en);
       setZhEntries(zh);
       setCodeEntries(code);
+      setEnWordsFallback(words);
       setReady(true);
     });
   }, [stored, navigate]);
 
   const config = stored!;
-  const text = useMemo(() => makeText(config, enEntries, zhEntries, codeEntries), [config, enEntries, zhEntries, codeEntries, key]);
+  const text = useMemo(() => makeText(config, enEntries, zhEntries, codeEntries, enWordsFallback), [config, enEntries, zhEntries, codeEntries, enWordsFallback, key]);
 
   const handleRetry = useCallback(() => {
     setKey((k) => k + 1);
