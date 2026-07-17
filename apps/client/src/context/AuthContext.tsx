@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { load, save, remove } from "../services/storage";
 import { api } from "../services/api";
-import type { Role } from "../types/permissions";
-import { hasPermission as checkPermission } from "../types/permissions";
+
+export type Role = "guest" | "user" | "admin" | "developer";
+
+const GUEST_PERMISSIONS = ["game:play", "leaderboard:view"];
 
 const TOKEN_KEY = "auth:token";
 
@@ -83,8 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hasPermission = useCallback(
-    (permission: string) => checkPermission(user?.role ?? "guest", permission),
-    [user?.role],
+    (permission: string) => (user?.permissions ?? GUEST_PERMISSIONS).includes(permission),
+    [user?.permissions],
   );
 
   return (

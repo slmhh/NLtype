@@ -18,25 +18,7 @@ func loadData() {
 	readJSON(filepath.Join(dataDir, "zh", "texts.json"), &chinese)
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<!DOCTYPE html>
-<html><head><title>NLType API</title>
-<meta charset="utf-8">
-<style>body{font-family:monospace;background:#1e1e2e;color:#cdd6f4;max-width:600px;margin:40px auto;padding:20px;}
-a{color:#89b4fa}h1{color:#a6e3a1}code{background:#313244;padding:2px 6px;border-radius:4px;}</style>
-<body>
-<h1>NLType API</h1>
-<p>Backend server is running.</p>
-<h2>Endpoints</h2>
-<ul>
-<li><code>GET /api/health</code></li>
-<li><code>GET /api/text/english</code></li>
-<li><code>GET /api/text/chinese</code></li>
-</ul>
-<p><a href="/api/health">/api/health</a></p>
-</body></html>`))
-}
+
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})

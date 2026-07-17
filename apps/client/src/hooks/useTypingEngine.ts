@@ -161,7 +161,7 @@ export function useTypingEngine({
 
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      // Backspace éˆ¥?only move index back, reset the character
+      // Backspace éˆ?only move index back, reset the character
       if (e.key === "Backspace") {
         e.preventDefault();
         if (cur.currentIndex <= 0) return;
@@ -176,7 +176,7 @@ export function useTypingEngine({
         return;
       }
 
-      // English mode éˆ¥?any printable char advances. Space is no longer special.
+      // English mode éˆ?any printable char advances. Space is no longer special.
       if (langRef.current === "en" && e.key.length === 1) {
         e.preventDefault();
         const expected = cur.chars[cur.currentIndex]?.char;
@@ -235,18 +235,6 @@ export function useTypingEngine({
     if (state.isFinished && isActive) onFinishRef.current();
   }, [state.isFinished, isActive]);
 
-  const processComposition = useCallback((composed: string) => {
-    const cur = stateRef.current;
-    if (cur.isFinished || !composed) return;
-    if (startTimeRef.current === null) startTimeRef.current = Date.now();
-    const baseIdx = cur.currentIndex;
-    for (let i = 0; i < composed.length; i++) {
-      const idx = baseIdx + i;
-      if (idx >= cur.chars.length) break;
-      const expected = cur.chars[idx]?.char;
-      if (expected !== undefined) advance(composed[i], expected);
-    }
-  }, [advance, getElapsed, deriveStats]);
 
   const reset = useCallback((newText: string) => {
     setState(initState(newText));

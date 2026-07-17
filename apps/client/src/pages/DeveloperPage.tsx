@@ -3,7 +3,7 @@ import { Message, Select, Input } from "@arco-design/web-react";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { api } from "../services/api";
-import type { Role } from "../types/permissions";
+import type { Role } from "../context/AuthContext";
 
 interface UserItem {
   id: number;

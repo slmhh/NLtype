@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { api } from "../services/api";
 import { clearResults } from "../services/results";
-import type { Role } from "../types/permissions";
+import type { Role } from "../context/AuthContext";
 import PermissionGuard from "../components/PermissionGuard";
 
 interface Stats {
