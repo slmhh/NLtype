@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import type { GameConfig, GameCategory, GameMode, Language } from "../types/game";
 import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, defaultConfig, sanitizeCustomText } from "../types/game";
@@ -9,6 +10,7 @@ export type { GameConfig, GameMode, Language } from "../types/game";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { language, setLanguage } = useLanguage();
   const { t } = useI18n();
   const config = useState<GameConfig>(defaultConfig)[0];
@@ -102,6 +104,27 @@ export default function HomePage() {
           {t("home.subtitle")}
         </p>
       </div>
+
+      {/* Daily challenge callout */}
+      {user && (
+        <div className={`w-full max-w-[780px] mb-4 ${fade}`} style={{ transitionDelay: "50ms" }}>
+          <button
+            onClick={() => navigate("/daily")}
+            className="w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-[var(--accent-soft)] to-transparent border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">🔥</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-[var(--text-primary)] tracking-wider">{t("daily.title")}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{t("home.dailyDesc")}</p>
+              </div>
+            </div>
+            <span className="text-xs text-[var(--accent)] group-hover:translate-x-1 transition-transform">
+              {t("home.dailyGo")} →
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Card */}
       <div className={`w-full max-w-[780px] bg-card rounded-2xl shadow-card p-10 ${fade}`} style={{ transitionDelay: "100ms" }}>

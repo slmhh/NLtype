@@ -103,6 +103,38 @@ var migrations = []migration{
 			);
 			CREATE INDEX IF NOT EXISTS idx_typing_events_result ON typing_events(result_id);`,
 	},
+	{
+		version: 5,
+		desc:    "add daily_challenges table",
+		sql: `
+			CREATE TABLE IF NOT EXISTS daily_challenges (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				date TEXT NOT NULL UNIQUE,
+				text TEXT NOT NULL,
+				created_at TEXT NOT NULL
+			);`,
+	},
+	{
+		version: 6,
+		desc:    "add daily_attempts table",
+		sql: `
+			CREATE TABLE IF NOT EXISTS daily_attempts (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				challenge_id INTEGER NOT NULL,
+				wpm INTEGER NOT NULL,
+				accuracy INTEGER NOT NULL,
+				cpm INTEGER NOT NULL,
+				raw_wpm INTEGER NOT NULL,
+				correct_count INTEGER NOT NULL,
+				incorrect_count INTEGER NOT NULL,
+				duration_sec INTEGER NOT NULL,
+				created_at TEXT NOT NULL,
+				FOREIGN KEY (user_id) REFERENCES users(id),
+				FOREIGN KEY (challenge_id) REFERENCES daily_challenges(id)
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_attempts_user_challenge ON daily_attempts(user_id, challenge_id);`,
+	},
 }
 
 func initDB(dir string) error {

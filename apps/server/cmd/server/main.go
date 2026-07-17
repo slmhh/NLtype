@@ -337,6 +337,11 @@ func main() {
 
 	mux.HandleFunc("GET /api/admin/stats", handleAdminStats)
 
+	// Daily challenge
+	mux.HandleFunc("GET /api/daily", handleDailyChallenge)
+	mux.HandleFunc("POST /api/daily/attempt", handleSubmitDailyAttempt)
+	mux.HandleFunc("GET /api/daily/leaderboard", handleDailyLeaderboard)
+
 	// SPA fallback for all non-API routes
 	mux.HandleFunc("/", spaFileServer)
 
