@@ -4,13 +4,18 @@ interface Entry {
   id: number;
   content: string;
   language: string;
+  codeLang?: string;
 }
 
 /** Fetch approved entries from server, fall back to empty array */
-export async function getApprovedEntries(language: string): Promise<string[]> {
+export async function getApprovedEntries(language: string, codeLang?: string): Promise<Entry[]> {
   try {
-    const data = await api<{ entries: Entry[] }>(`/api/entries/approved?language=${language}&limit=100`);
-    return data.entries.map((e) => e.content);
+    let url = `/api/entries/approved?language=${language}&limit=100`;
+    if (codeLang) {
+      url += `&code_lang=${codeLang}`;
+    }
+    const data = await api<{ entries: Entry[] }>(url);
+    return data.entries;
   } catch {
     return [];
   }

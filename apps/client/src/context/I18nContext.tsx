@@ -217,6 +217,19 @@ export const dict: Record<UILang, Record<string, string>> = {
     "mode.code": "代码",
     "mode.custom": "自定义",
 
+    // code language labels
+    "codeLang.typescript": "TypeScript",
+    "codeLang.javascript": "JavaScript",
+    "codeLang.python": "Python",
+    "codeLang.rust": "Rust",
+    "codeLang.go": "Go",
+    "codeLang.c": "C",
+    "codeLang.cpp": "C++",
+    "codeLang.csharp": "C#",
+    "codeLang.html": "HTML",
+    "codeLang.css": "CSS",
+    "codeLang.sql": "SQL",
+
     // language labels
     "lang.en": "EN",
     "lang.zh": "中文",
@@ -497,6 +510,18 @@ export const dict: Record<UILang, Record<string, string>> = {
     "mode.quote": "Passage",
     "mode.code": "Code",
     "mode.custom": "Custom",
+
+    "codeLang.typescript": "TypeScript",
+    "codeLang.javascript": "JavaScript",
+    "codeLang.python": "Python",
+    "codeLang.rust": "Rust",
+    "codeLang.go": "Go",
+    "codeLang.c": "C",
+    "codeLang.cpp": "C++",
+    "codeLang.csharp": "C#",
+    "codeLang.html": "HTML",
+    "codeLang.css": "CSS",
+    "codeLang.sql": "SQL",
 
     // language labels
     "lang.en": "EN",

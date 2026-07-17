@@ -305,6 +305,8 @@ func main() {
 	}
 	log.Println("Database initialized")
 
+	seedCodeEntries()
+
 	loadData()
 
 	mux := http.NewServeMux()

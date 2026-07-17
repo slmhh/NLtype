@@ -6,7 +6,7 @@ import { getChineseText } from "../data/zh";
 import { getRandomCodeSnippet } from "../data/code";
 import { getRandomQuote } from "../data/quotes";
 import { getApprovedEntries } from "../services/entries";
-import type { GameConfig } from "../types/game";
+import type { GameConfig, CodeLang } from "../types/game";
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -41,7 +41,12 @@ function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], 
   }
 
   if (config.language === "code") {
-    return codeEntries.length > 0 ? pickRandom(codeEntries) : getRandomCodeSnippet();
+    const codeLang: CodeLang = config.codeLang || "typescript";
+    // Use server entries first, fallback to local snippets
+    if (codeEntries.length > 0) {
+      return codeEntries[Math.floor(Math.random() * codeEntries.length)];
+    }
+    return getRandomCodeSnippet(codeLang);
   }
   if (config.language === "zh") {
     return zhEntries.length > 0 ? pickRandom(zhEntries) : getChineseText();
@@ -76,11 +81,12 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!stored) { navigate("/", { replace: true }); return; }
-    Promise.all([
-      getApprovedEntries("en"),
-      getApprovedEntries("zh"),
-      getApprovedEntries("code"),
-    ]).then(([en, zh, code]) => {
+    const enPromise = getApprovedEntries("en").then((entries) => entries.map((e) => e.content));
+    const zhPromise = getApprovedEntries("zh").then((entries) => entries.map((e) => e.content));
+    const codePromise = stored.codeLang
+      ? getApprovedEntries("code", stored.codeLang).then((entries) => entries.map((e) => e.content))
+      : Promise.resolve<string[]>([]);
+    Promise.all([enPromise, zhPromise, codePromise]).then(([en, zh, code]) => {
       setEnEntries(en);
       setZhEntries(zh);
       setCodeEntries(code);
@@ -101,7 +107,7 @@ export default function GamePage() {
 
   if (!stored || !ready) return null;
 
-  const noTimer = config.mode === "zen" || config.mode === "words" || config.mode === "quote" || config.mode === "custom" || config.language === "code";
+  const noTimer = config.mode === "zen" || config.mode === "words" || config.mode === "quote" || config.mode === "custom";
 
   return (
     <TypingGame

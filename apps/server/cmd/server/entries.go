@@ -7,11 +7,18 @@ import (
 	"strconv"
 )
 
+var validCodeLangs = map[string]bool{
+	"typescript": true, "javascript": true, "python": true, "rust": true,
+	"go": true, "c": true, "cpp": true, "csharp": true,
+	"html": true, "css": true, "sql": true,
+}
+
 type WordEntry struct {
 	ID         int    `json:"id"`
 	UserID     int    `json:"userId"`
 	Username   string `json:"username"`
 	Language   string `json:"language"`
+	CodeLang   string `json:"codeLang,omitempty"`
 	Content    string `json:"content"`
 	Status     string `json:"status"`
 	CreatedAt  string `json:"createdAt"`
@@ -30,6 +37,7 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Language string `json:"language"`
+		CodeLang string `json:"codeLang"`
 		Content  string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -40,6 +48,10 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	validLangs := map[string]bool{"en": true, "zh": true, "code": true}
 	if !validLangs[body.Language] {
 		writeError(w, 400, "Invalid language")
+		return
+	}
+	if body.Language == "code" && body.CodeLang != "" && !validCodeLangs[body.CodeLang] {
+		writeError(w, 400, "Invalid code language")
 		return
 	}
 
@@ -70,9 +82,9 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	created := nowISO()
 	var id int
 	err := db.QueryRow(
-		`INSERT INTO entries (user_id, username, language, content, status, created_at, reviewed_at, reviewed_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		claims.ID, claims.Username, body.Language, sanitized, status, created, nullStr(reviewedAt), nullInt(reviewedBy),
+		`INSERT INTO entries (user_id, username, language, code_lang, content, status, created_at, reviewed_at, reviewed_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		claims.ID, claims.Username, body.Language, body.CodeLang, sanitized, status, created, nullStr(reviewedAt), nullInt(reviewedBy),
 	).Scan(&id)
 	if err != nil {
 		writeError(w, 500, "Failed to create entry")
@@ -84,6 +96,7 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 		UserID:     claims.ID,
 		Username:   claims.Username,
 		Language:   body.Language,
+		CodeLang:   body.CodeLang,
 		Content:    sanitized,
 		Status:     status,
 		CreatedAt:  created,
@@ -103,8 +116,9 @@ func handleListEntries(w http.ResponseWriter, r *http.Request) {
 	isAdmin := claims.Role == "admin" || claims.Role == "developer"
 	statusFilter := r.URL.Query().Get("status")
 	langFilter := r.URL.Query().Get("language")
+	codeLangFilter := r.URL.Query().Get("code_lang")
 
-	query := `SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+	query := `SELECT id, user_id, username, language, code_lang, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
 		FROM entries WHERE 1=1`
 	args := []any{}
 
@@ -120,6 +134,10 @@ func handleListEntries(w http.ResponseWriter, r *http.Request) {
 		query += " AND language = ?"
 		args = append(args, langFilter)
 	}
+	if codeLangFilter != "" {
+		query += " AND code_lang = ?"
+		args = append(args, codeLangFilter)
+	}
 	query += " ORDER BY id DESC"
 
 	rows, err := db.Query(query, args...)
@@ -132,7 +150,7 @@ func handleListEntries(w http.ResponseWriter, r *http.Request) {
 	var entries []WordEntry
 	for rows.Next() {
 		var e WordEntry
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.CodeLang, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
 			log.Printf("scan entry row: %v", err)
 			continue
 		}
@@ -149,6 +167,7 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 	if lang == "" {
 		lang = "en"
 	}
+	codeLangFilter := r.URL.Query().Get("code_lang")
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil && n > 0 {
@@ -156,9 +175,17 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rows, err := db.Query(
-		`SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
-		 FROM entries WHERE status = 'approved' AND language = ? ORDER BY id DESC LIMIT ?`, lang, limit)
+	query := `SELECT id, user_id, username, language, code_lang, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+		 FROM entries WHERE status = 'approved' AND language = ?`
+	args := []any{lang}
+	if codeLangFilter != "" {
+		query += " AND code_lang = ?"
+		args = append(args, codeLangFilter)
+	}
+	query += " ORDER BY id DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		writeError(w, 500, "Failed to fetch entries")
 		return
@@ -168,7 +195,7 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 	var approved []WordEntry
 	for rows.Next() {
 		var e WordEntry
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.CodeLang, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
 			log.Printf("scan approved entry row: %v", err)
 			continue
 		}
@@ -221,10 +248,10 @@ func handleReviewEntry(w http.ResponseWriter, r *http.Request) {
 
 	// Return the updated entry
 	row := db.QueryRow(
-		`SELECT id, user_id, username, language, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
+		`SELECT id, user_id, username, language, code_lang, content, status, created_at, COALESCE(reviewed_at,''), COALESCE(reviewed_by,0)
 		 FROM entries WHERE id = ?`, entryID)
 	var e WordEntry
-	if err := row.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
+	if err := row.Scan(&e.ID, &e.UserID, &e.Username, &e.Language, &e.CodeLang, &e.Content, &e.Status, &e.CreatedAt, &e.ReviewedAt, &e.ReviewedBy); err != nil {
 		writeError(w, 500, "Entry updated but failed to read back")
 		return
 	}

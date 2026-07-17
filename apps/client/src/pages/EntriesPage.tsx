@@ -3,12 +3,15 @@ import { Message, Select, Tag } from "@arco-design/web-react";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { api } from "../services/api";
+import type { CodeLang } from "../types/game";
+import { CODE_LANGUAGES } from "../types/game";
 
 interface Entry {
   id: number;
   userId: number;
   username: string;
   language: string;
+  codeLang?: string;
   content: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
@@ -33,6 +36,7 @@ export default function EntriesPage() {
   const { t } = useI18n();
   const [tab, setTab] = useState<"submit" | "mine" | "review">("submit");
   const [language, setLanguage] = useState("en");
+  const [codeLang, setCodeLang] = useState<CodeLang>("typescript");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -64,7 +68,7 @@ export default function EntriesPage() {
     try {
       await api("/api/entries", {
         method: "POST",
-        body: { language, content: content.trim() },
+        body: { language, codeLang: language === "code" ? codeLang : undefined, content: content.trim() },
         token,
       });
       Message.success(t("entries.submitOk"));
@@ -126,9 +130,19 @@ export default function EntriesPage() {
           <div className="bg-card rounded-2xl shadow-card p-8">
             <div className="mb-5">
               <label className="text-[var(--text-tertiary)] text-xs tracking-wider block mb-2">{t("entries.language")}</label>
-              <Select value={language} onChange={setLanguage}
-                options={LANG_OPTIONS}
-                className="!w-32" />
+              <Select value={language} onChange={(v) => { setLanguage(v); }} options={LANG_OPTIONS} className="!w-32" />
+              {language === "code" && (
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  {CODE_LANGUAGES.map((cl) => (
+                    <button key={cl} onClick={() => setCodeLang(cl)}
+                      className={`px-2 py-0.5 text-xs rounded-lg transition-all font-mono ${
+                        codeLang === cl ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                      }`}>
+                      {cl}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mb-5">
@@ -169,7 +183,7 @@ export default function EntriesPage() {
                     <Tag color={STATUS_TAG[e.status].color} size="small" bordered>
                       {t(STATUS_TAG[e.status].key)}
                     </Tag>
-                    <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}</span>
+                    <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}{e.codeLang ? `/${e.codeLang}` : ""}</span>
                     <span className="text-[var(--text-tertiary)] text-xs ml-auto">
                       {new Date(e.createdAt).toLocaleDateString("zh-CN")}
                     </span>
@@ -194,7 +208,7 @@ export default function EntriesPage() {
                 <div key={e.id} className="px-5 py-4 border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-alt)] transition-colors">
                   <div className="flex items-center gap-3 mb-1">
                     <span className="text-[var(--text-primary)] text-xs font-mono font-semibold">{e.username}</span>
-                    <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}</span>
+                    <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}{e.codeLang ? `/${e.codeLang}` : ""}</span>
                     <span className="text-[var(--text-tertiary)] text-xs ml-auto">
                       {new Date(e.createdAt).toLocaleDateString("zh-CN")}
                     </span>

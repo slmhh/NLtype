@@ -135,6 +135,11 @@ var migrations = []migration{
 			);
 			CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_attempts_user_challenge ON daily_attempts(user_id, challenge_id);`,
 	},
+	{
+		version: 7,
+		desc:    "add code_lang column to entries",
+		sql:     "ALTER TABLE entries ADD COLUMN code_lang TEXT NOT NULL DEFAULT ''",
+	},
 }
 
 func initDB(dir string) error {

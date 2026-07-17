@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
-import type { GameConfig, GameCategory, GameMode, Language } from "../types/game";
-import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, defaultConfig, sanitizeCustomText } from "../types/game";
+import type { GameConfig, GameCategory, GameMode, Language, CodeLang } from "../types/game";
+import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, CODE_LANGUAGES, defaultConfig, sanitizeCustomText } from "../types/game";
 
 export type { GameConfig, GameMode, Language } from "../types/game";
 
@@ -20,6 +20,7 @@ export default function HomePage() {
   const [wordCount, setWordCount] = useState(config.wordCount);
   const [customText, setCustomText] = useState("");
   const [customError, setCustomError] = useState("");
+  const [codeLang, setCodeLang] = useState<CodeLang>("typescript");
   const [customTimerEnabled, setCustomTimerEnabled] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState(30);
   const [timeInputStr, setTimeInputStr] = useState("30");
@@ -31,8 +32,8 @@ export default function HomePage() {
 
   const timerLimit = customTimerEnabled ? customTimeLimit : 0;
 
-  const configRef = useRef({ category, mode, language, timeLimit, wordCount, customText: "" });
-  configRef.current = { category, mode, language, timeLimit: timerLimit, wordCount, customText };
+  const configRef = useRef({ category, mode, language, timeLimit, wordCount, customText: "", codeLang: "typescript" as CodeLang });
+  configRef.current = { category, mode, language, timeLimit: timerLimit, wordCount, customText, codeLang };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -62,7 +63,7 @@ export default function HomePage() {
       return;
     }
     readyRef.current = true;
-    navigate("/game", { state: { config: configRef.current } });
+    navigate("/game", { state: { config: { ...configRef.current, codeLang } } });
   }, [category, customText, customTimeLimit, timerLimit, navigate, t, validateTimeLimit]);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function HomePage() {
         navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: timerLimit } } });
       } else {
         readyRef.current = true;
-        navigate("/game", { state: { config: configRef.current } });
+        navigate("/game", { state: { config: { ...configRef.current, codeLang } } });
       }
     };
     window.addEventListener("keydown", handler);
@@ -300,6 +301,20 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
+
+            {/* Code sub-language selector */}
+            {language === "code" && (
+              <div className="flex items-center justify-center gap-2 flex-wrap mb-6">
+                {CODE_LANGUAGES.map((cl) => (
+                  <button key={cl} onClick={() => setCodeLang(cl)}
+                    className={`px-3 py-1 text-xs tracking-wider rounded-lg transition-all font-mono ${
+                      codeLang === cl ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                    }`}>
+                    {t(`codeLang.${cl}`)}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
 
