@@ -52,6 +52,7 @@ type Stats struct {
 }
 
 func handleAdminStats(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil || !hasPermission(Role(claims.Role), "admin:panel") {
 		writeError(w, 403, "Insufficient permissions")

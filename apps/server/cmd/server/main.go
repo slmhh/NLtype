@@ -1,9 +1,10 @@
-﻿package main
+package main
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"html"
 	"log"
@@ -74,7 +75,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
-// ── JWT ──
+// ���� JWT ����
 
 type Claims struct {
 	ID        int    `json:"id"`
@@ -128,18 +129,21 @@ func hmacSHA256(key []byte, data string) string {
 }
 
 func getAuthUser(r *http.Request) *Claims {
-	auth := r.Header.Get("Authorization")
-	if !strings.HasPrefix(auth, "Bearer ") {
+	token := getRawToken(r)
+	if token == "" {
 		return nil
 	}
-	c, ok := verifyToken(auth[7:])
+	c, ok := verifyToken(token)
 	if !ok {
+		return nil
+	}
+	if isTokenBlacklisted(token) {
 		return nil
 	}
 	return c
 }
 
-// ── Permission helpers ──
+// ���� Permission helpers ����
 
 type Role string
 
@@ -164,7 +168,7 @@ func hasPermission(role Role, perm string) bool {
 	return false
 }
 
-// ── CORS middleware (dev only; in production frontend is served from same origin) ──
+// ���� CORS middleware (dev only; in production frontend is served from same origin) ����
 
 func cors(next http.Handler) http.Handler {
 	origin := getEnv("CORS_ORIGIN", "")
@@ -182,7 +186,7 @@ func cors(next http.Handler) http.Handler {
 	})
 }
 
-// ── Security headers ──
+// ���� Security headers ����
 
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +199,7 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// ── Rate limiter ──
+// ���� Rate limiter ����
 
 type rateRecord struct {
 	count   int
@@ -249,7 +253,7 @@ func checkRateLimit(userID int, maxPerHour int) bool {
 	return true
 }
 
-// ── Text sanitize ──
+// ���� Text sanitize ����
 
 func sanitizeContent(s string) string {
 	s = strings.TrimSpace(strings.Map(func(r rune) rune {
@@ -262,7 +266,44 @@ func sanitizeContent(s string) string {
 	return s
 }
 
-// ── Helpers ──
+// ���� Security helpers ����
+
+func realIP(r *http.Request) string {
+	return r.RemoteAddr
+}
+
+func limitBody(r *http.Request) {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<20) // 1 MB
+}
+
+func getRawToken(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return ""
+	}
+	return auth[7:]
+}
+
+func tokenHash(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
+func blacklistToken(token string, expiresAt int64) {
+	hash := tokenHash(token)
+	expires := time.Unix(expiresAt, 0).UTC().Format("2006-01-02T15:04:05Z")
+	now := nowISO()
+	db.Exec("INSERT OR IGNORE INTO token_blacklist (token_hash, expires_at, created_at) VALUES (?, ?, ?)", hash, expires, now)
+}
+
+func isTokenBlacklisted(token string) bool {
+	hash := tokenHash(token)
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM token_blacklist WHERE token_hash = ?", hash).Scan(&count)
+	return count > 0
+}
+
+// ���� Helpers ����
 
 func timeNow() string {
 	return time.Now().UTC().Format(time.RFC3339)
@@ -272,7 +313,7 @@ func parseID(s string) (int, error) {
 	return strconv.Atoi(s)
 }
 
-// ── Main ──
+// ���� Main ����
 
 func spaFileServer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
@@ -292,6 +333,9 @@ func main() {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	if len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters long")
 	}
 	jwtKey = []byte(jwtSecret)
 
@@ -317,9 +361,12 @@ func main() {
 
 	mux.HandleFunc("POST /api/auth/register", handleRegister)
 	mux.HandleFunc("POST /api/auth/login", handleLogin)
+	mux.HandleFunc("POST /api/auth/logout", handleLogout)
 	mux.HandleFunc("GET /api/auth/me", handleMe)
 	mux.HandleFunc("POST /api/auth/forgot-password", handleForgotPassword)
 	mux.HandleFunc("POST /api/auth/reset-password", handleResetPassword)
+	mux.HandleFunc("GET /api/auth/verify-email", handleVerifyEmail)
+	mux.HandleFunc("POST /api/auth/send-verification", handleSendVerification)
 	mux.HandleFunc("GET /api/auth/settings", handleGetSettings)
 	mux.HandleFunc("PATCH /api/auth/settings", handleUpdateSettings)
 	mux.HandleFunc("GET /api/auth/users", handleListUsers)

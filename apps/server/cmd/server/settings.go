@@ -5,6 +5,16 @@ import (
 	"net/http"
 )
 
+var allowedSettingKeys = map[string]func(any) bool{
+	"theme":            func(v any) bool { s, ok := v.(string); return ok && (s == "light" || s == "dark") },
+	"soundEnabled":     func(v any) bool { _, ok := v.(bool); return ok },
+	"soundVolume":      func(v any) bool { n, ok := v.(float64); return ok && n >= 0 && n <= 1 },
+	"fontSize":         func(v any) bool { n, ok := v.(float64); return ok && n >= 12 && n <= 32 },
+	"uiLang":           func(v any) bool { s, ok := v.(string); return ok && (s == "zh" || s == "en") },
+	"keyboardLayout":   func(v any) bool { s, ok := v.(string); return ok && len(s) <= 20 },
+	"showKeyHints":     func(v any) bool { _, ok := v.(bool); return ok },
+}
+
 func handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	claims := getAuthUser(r)
 	if claims == nil {
@@ -28,6 +38,7 @@ func handleGetSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Authentication required")
@@ -44,6 +55,19 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if body.Settings == nil {
 		writeError(w, 400, "Settings object is required")
 		return
+	}
+
+	// Validate each setting key and value
+	for k, v := range body.Settings {
+		validator, ok := allowedSettingKeys[k]
+		if !ok {
+			writeError(w, 400, "Unknown setting: "+k)
+			return
+		}
+		if !validator(v) {
+			writeError(w, 400, "Invalid value for setting: "+k)
+			return
+		}
 	}
 
 	// Merge with existing settings

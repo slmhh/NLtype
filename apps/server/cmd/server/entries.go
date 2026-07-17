@@ -29,6 +29,7 @@ type WordEntry struct {
 // ── Handlers ──
 
 func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Authentication required")
@@ -208,6 +209,7 @@ func handleApprovedEntries(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleReviewEntry(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil || !hasPermission(Role(claims.Role), "admin:panel") {
 		writeError(w, 403, "Insufficient permissions")

@@ -45,7 +45,7 @@ func modeLabel(m string) string {
 	case "code":
 		return "代码"
 	case "zen":
-		return "禅"
+		return "�?
 	}
 	return m
 }
@@ -65,6 +65,7 @@ func langLabel(l string) string {
 // ── Handlers ──
 
 func handleCreateResult(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Authentication required")
@@ -135,9 +136,21 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Limit events to prevent abuse
+	if len(body.Events) > 10000 {
+		body.Events = body.Events[:10000]
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		writeError(w, 500, "Internal error")
+		return
+	}
+	defer tx.Rollback()
+
 	created := nowISO()
 	var id int
-	err := db.QueryRow(
+	err = tx.QueryRow(
 		`INSERT INTO results (user_id, username, mode, language, wpm, accuracy, cpm, raw_wpm, correct_count, incorrect_count, duration_sec, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		claims.ID, claims.Username, body.Mode, body.Language,
@@ -145,6 +158,32 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		body.CorrectCount, body.IncorrectCount, body.DurationSec, created,
 	).Scan(&id)
 	if err != nil {
+		writeError(w, 500, "Failed to save result")
+		return
+	}
+
+	// Save typing events within the same transaction
+	if len(body.Events) > 0 {
+		stmt, err := tx.Prepare(
+			`INSERT INTO typing_events (result_id, char_index, expected_char, typed_char, latency_ms, is_correct, elapsed_ms)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`)
+		if err != nil {
+			writeError(w, 500, "Failed to prepare event insert")
+			return
+		}
+		defer stmt.Close()
+		for _, e := range body.Events {
+			isCorrect := 0
+			if e.ExpectedChar == e.TypedChar {
+				isCorrect = 1
+			}
+			if _, err := stmt.Exec(id, e.CharIndex, e.ExpectedChar, e.TypedChar, e.LatencyMs, isCorrect, e.ElapsedMs); err != nil {
+				log.Printf("insert event: %v", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		writeError(w, 500, "Failed to save result")
 		return
 	}
@@ -165,27 +204,11 @@ func handleCreateResult(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:      created,
 	}
 
-	// Save typing events if provided
-	if len(body.Events) > 0 {
-		stmt, err := db.Prepare(
-			`INSERT INTO typing_events (result_id, char_index, expected_char, typed_char, latency_ms, is_correct, elapsed_ms)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`)
-		if err == nil {
-			defer stmt.Close()
-			for _, e := range body.Events {
-				isCorrect := 0
-				if e.ExpectedChar == e.TypedChar {
-					isCorrect = 1
-				}
-				stmt.Exec(id, e.CharIndex, e.ExpectedChar, e.TypedChar, e.LatencyMs, isCorrect, e.ElapsedMs)
-			}
-		}
-	}
-
 	writeJSON(w, 201, map[string]any{"result": res})
 }
 
 func handleGetResults(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Authentication required")
@@ -410,7 +433,7 @@ func handleResultStats(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if correct == 0 {
-			errorMap[fmt.Sprintf("%s→%s", exp, typed)]++
+			errorMap[fmt.Sprintf("%s�?s", exp, typed)]++
 		}
 
 		events = append(events, map[string]any{

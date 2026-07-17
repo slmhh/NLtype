@@ -140,6 +140,25 @@ var migrations = []migration{
 		desc:    "add code_lang column to entries",
 		sql:     "ALTER TABLE entries ADD COLUMN code_lang TEXT NOT NULL DEFAULT ''",
 	},
+	{
+		version: 8,
+		desc:    "add token_blacklist and email_verified",
+		sql: `
+			CREATE TABLE IF NOT EXISTS token_blacklist (
+				token_hash TEXT PRIMARY KEY,
+				expires_at TEXT NOT NULL,
+				created_at TEXT NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS email_verification_tokens (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				token TEXT NOT NULL,
+				expires_at TEXT NOT NULL,
+				created_at TEXT NOT NULL,
+				FOREIGN KEY (user_id) REFERENCES users(id)
+			);
+			ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;`,
+	},
 }
 
 func initDB(dir string) error {

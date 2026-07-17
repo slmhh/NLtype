@@ -52,6 +52,7 @@ func getOrCreateDailyChallenge(dateStr string) (int, string, error) {
 }
 
 func handleDailyChallenge(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	dateStr := todayStr()
 	id, text, err := getOrCreateDailyChallenge(dateStr)
 	if err != nil {
@@ -78,6 +79,7 @@ func handleDailyChallenge(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSubmitDailyAttempt(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Authentication required")

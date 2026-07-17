@@ -20,10 +20,8 @@ func generateResetToken() (string, error) {
 }
 
 func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = forwarded
-	}
+	limitBody(r)
+	ip := realIP(r)
 	if !checkIPRateLimit(ip, 3, 60000) {
 		writeError(w, 429, "Too many requests. Please try again later.")
 		return
@@ -69,14 +67,18 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Password reset token for %s: %s", body.Email, token)
-	writeJSON(w, 200, map[string]any{
-		"ok":    true,
-		"token": token,
-	})
+	log.Printf("Password reset token for user %d: %s", userID, token)
+	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
 func handleResetPassword(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
+	ip := realIP(r)
+	if !checkIPRateLimit(ip, 5, 60000) {
+		writeError(w, 429, "Too many requests. Please try again later.")
+		return
+	}
+
 	var body struct {
 		Token       string `json:"token"`
 		NewPassword string `json:"newPassword"`

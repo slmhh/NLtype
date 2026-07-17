@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"regexp"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -77,6 +78,15 @@ func registerUser(username, email, password string) (UserPublic, string, error) 
 		Permissions: rolePermissions[role],
 		CreatedAt:   created,
 	}
+
+	// Generate email verification token
+	if vToken, err := generateResetToken(); err == nil {
+		vExpires := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02T15:04:05Z")
+		db.Exec("INSERT INTO email_verification_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
+			id, vToken, vExpires, created)
+		log.Printf("Email verification token for user %d: %s", id, vToken)
+	}
+
 	token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})
 	return pub, token, nil
 }
@@ -174,11 +184,73 @@ func (e *appErr) Error() string { return e.msg }
 
 // ── Handlers ──
 
-func handleRegister(w http.ResponseWriter, r *http.Request) {
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = forwarded
+func handleLogout(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
+	claims := getAuthUser(r)
+	if claims == nil {
+		writeError(w, 401, "Authentication required")
+		return
 	}
+	token := getRawToken(r)
+	blacklistToken(token, claims.ExpiresAt)
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleSendVerification(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
+	claims := getAuthUser(r)
+	if claims == nil {
+		writeError(w, 401, "Authentication required")
+		return
+	}
+
+	token, err := generateResetToken()
+	if err != nil {
+		writeError(w, 500, "Internal error")
+		return
+	}
+
+	expiresAt := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02T15:04:05Z")
+	created := nowISO()
+	_, err = db.Exec(
+		"INSERT INTO email_verification_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
+		claims.ID, token, expiresAt, created)
+	if err != nil {
+		writeError(w, 500, "Internal error")
+		return
+	}
+
+	log.Printf("Email verification token for user %d: %s", claims.ID, token)
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		writeError(w, 400, "Token is required")
+		return
+	}
+
+	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	var userID int
+	err := db.QueryRow(
+		`SELECT user_id FROM email_verification_tokens
+		 WHERE token = ? AND expires_at > ?`, token, now,
+	).Scan(&userID)
+	if err != nil {
+		writeError(w, 400, "Invalid or expired token")
+		return
+	}
+
+	db.Exec("UPDATE users SET email_verified = 1 WHERE id = ?", userID)
+	db.Exec("DELETE FROM email_verification_tokens WHERE user_id = ?", userID)
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleRegister(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
+	ip := realIP(r)
 	if !checkIPRateLimit(ip, 5, 60000) {
 		writeError(w, 429, "Too many requests. Please try again later.")
 		return
@@ -228,10 +300,8 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = forwarded
-	}
+	limitBody(r)
+	ip := realIP(r)
 	if !checkIPRateLimit(ip, 5, 60000) {
 		writeError(w, 429, "Too many requests. Please try again later.")
 		return
@@ -263,6 +333,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil {
 		writeError(w, 401, "Missing or invalid token")
@@ -277,6 +348,7 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleListUsers(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil || !hasPermission(Role(claims.Role), "users:view") {
 		writeError(w, 403, "Insufficient permissions")
@@ -286,6 +358,7 @@ func handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpdateRole(w http.ResponseWriter, r *http.Request) {
+	limitBody(r)
 	claims := getAuthUser(r)
 	if claims == nil || !hasPermission(Role(claims.Role), "roles:assign") {
 		writeError(w, 403, "Insufficient permissions")
