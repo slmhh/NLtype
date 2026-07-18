@@ -67,7 +67,7 @@ func seedCodeEntries() {
 	for _, s := range seedCodeSnippets {
 		_, err := db.Exec(
 			`INSERT INTO entries (user_id, username, language, code_lang, content, status, created_at, reviewed_at, reviewed_by)
-			 VALUES (0, 'system', 'code', ?, ?, 'approved', datetime('now'), datetime('now'), 0)`,
+			 VALUES (1, 'system', 'code', ?, ?, 'approved', datetime('now'), datetime('now'), 1)`,
 			s.CodeLang, s.Content,
 		)
 		if err != nil {

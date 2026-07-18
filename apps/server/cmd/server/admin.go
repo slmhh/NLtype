@@ -13,6 +13,15 @@ import (
 var words []string
 var chinese []string
 
+var defaultChinese = []string{
+	"季姬寂，集鸡，鸡即棘鸡。棘鸡饥叽，季姬及箕稷济鸡。鸡既济，跻姬笈，季姬忌，急咭鸡，鸡急，继级几，季姬激，即记。",
+	"石室诗士施氏，嗜狮，誓食十狮。施氏时时适市视狮。十时，适十狮适市。是时，适施氏适市。施氏视是十狮，恃矢势，使是十狮逝世。",
+	"试士试题，试师试拾硕鼠。师使士食鼠，士失食。师拾鼠，实拭，实石，实食，始识鼠实石也。",
+	"亚日与雅雅呀呀学语：雅呀呀，亚呀呀。雅呀呀呀？亚呀呀呀！雅呀呀呀呀？亚呀呀呀呀！",
+	"矣依倚椅，伊姨倚矣。矣倚椅以咦伊姨。伊姨亦倚椅以咦矣。矣咦伊姨咦矣。咦矣伊姨咦。咦依咦伊姨咦矣咦伊。",
+	"吾梧五，午晤五。五午晤吾梧，吾梧无五。五无无，吾梧无。无无无，无无无无无。",
+}
+
 var defaultWords = []string{
 	"the", "be", "to", "of", "and", "a", "in", "that", "have", "it",
 	"for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
@@ -36,6 +45,9 @@ func loadData() {
 		words = defaultWords
 	}
 	readJSON(filepath.Join(dataDir, "zh", "texts.json"), &chinese)
+	if len(chinese) == 0 {
+		chinese = defaultChinese
+	}
 }
 
 

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"html"
 	"log"
 	"net/http"
 	"os"
@@ -262,7 +261,6 @@ func sanitizeContent(s string) string {
 		}
 		return r
 	}, s))
-	s = html.EscapeString(s)
 	return s
 }
 
@@ -392,7 +390,7 @@ func main() {
 			writeError(w, 403, "Insufficient permissions")
 			return
 		}
-		resultsRepo.DeleteAll()
+		db.Exec("DELETE FROM results")
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})))
 

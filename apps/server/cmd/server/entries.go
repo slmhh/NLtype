@@ -51,9 +51,15 @@ func handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Invalid language")
 		return
 	}
-	if body.Language == "code" && body.CodeLang != "" && !validCodeLangs[body.CodeLang] {
-		writeError(w, 400, "Invalid code language")
-		return
+	if body.Language == "code" {
+		if body.CodeLang == "" {
+			writeError(w, 400, "Code language is required for code entries")
+			return
+		}
+		if !validCodeLangs[body.CodeLang] {
+			writeError(w, 400, "Invalid code language")
+			return
+		}
 	}
 
 	sanitized := sanitizeContent(body.Content)

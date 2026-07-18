@@ -16,7 +16,9 @@ export async function api<T>(path: string, opts: ApiOpts = {}): Promise<T> {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  if (!text) return {} as T;
+  const data = JSON.parse(text);
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data as T;
 }

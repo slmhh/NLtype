@@ -81,6 +81,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!stored) { navigate("/", { replace: true }); return; }
+    let cancelled = false;
     const enPromise = getApprovedEntries("en").then((entries) => entries.map((e) => e.content));
     const zhPromise = getApprovedEntries("zh").then((entries) => entries.map((e) => e.content));
     const codePromise = stored.codeLang
@@ -91,12 +92,14 @@ export default function GamePage() {
       .then((d: { words: string[] }) => d.words)
       .catch(() => [] as string[]);
     Promise.all([enPromise, zhPromise, codePromise, wordsPromise]).then(([en, zh, code, words]) => {
+      if (cancelled) return;
       setEnEntries(en);
       setZhEntries(zh);
       setCodeEntries(code);
       setEnWordsFallback(words);
       setReady(true);
     });
+    return () => { cancelled = true; };
   }, [stored, navigate]);
 
   const config = stored!;

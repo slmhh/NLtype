@@ -86,7 +86,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
   }, [text, timeLimit, resetTyping, hasTimer]);
 
   const savedRef = useRef(false);
-  const lastResultId = useRef<string | null>(null);
+  const [lastResultId, setLastResultId] = useState<string | null>(null);
   useEffect(() => {
     if (phase === "finished" && !savedRef.current) {
       savedRef.current = true;
@@ -98,7 +98,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         correctCount: typingState.correctCount,
         incorrectCount: typingState.incorrectCount,
         durationSec: Math.round(typingState.elapsedMs / 1000),
-      }, token, typingState.events).then((r) => { lastResultId.current = r.id; });
+      }, token, typingState.events).then((r) => { setLastResultId(r.id); });
     }
   }, [phase, typingState, gameConfig, token]);
 
@@ -265,7 +265,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
              {t("game.shareBtn")}
           </button>
 
-          {token && lastResultId.current && (
+          {token && lastResultId && (
             <button onClick={() => setShowStatsModal(true)}
               className="w-full mb-4 py-2 rounded-xl text-xs tracking-[0.15em] border border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all"
             >
@@ -289,7 +289,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
       <TypingStatsModal
         visible={showStatsModal}
         onClose={() => setShowStatsModal(false)}
-        resultId={lastResultId.current ?? ""}
+        resultId={lastResultId ?? ""}
       />
     </div>
   );
