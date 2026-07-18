@@ -50,7 +50,9 @@ function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], 
   }
 
   // Build word pool from approved entries or server fallback
-  const pool = enEntries.length > 0 ? enEntries.flatMap((e) => e.split(/\s+/).filter(Boolean)) : enWordsFallback;
+  const pool = enEntries.length > 0
+    ? enEntries.flatMap((e) => e.split(/\s+/).filter(Boolean))
+    : (enWordsFallback ?? []);
 
   switch (config.mode) {
     case "quote":

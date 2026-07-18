@@ -15,7 +15,7 @@ export default function NavBar() {
   const { theme, toggle } = useTheme();
   const { language, setLanguage } = useLanguage();
   const { user, logout } = useAuth();
-  const { lang: uiLang, setLang: setUILang, t } = useI18n();
+  const { t } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -119,23 +119,6 @@ export default function NavBar() {
             </div>
           )}
         </div>
-
-        {/* UI language dropdown */}
-        <Dropdown
-          droplist={
-            <Menu onClickMenuItem={(key) => setUILang(key as UILang)}>
-              {(["zh", "en"] as const).map((l) => (
-                <Menu.Item key={l}>{uiLang === l ? "✓ " : ""}{l === "zh" ? "中文" : "EN"}</Menu.Item>
-              ))}
-            </Menu>
-          }
-          trigger="click"
-          position="br"
-        >
-          <button className="text-xs font-mono tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">
-            {uiLang === "zh" ? "中" : "EN"}
-          </button>
-        </Dropdown>
 
         {/* Theme toggle */}
         <button
