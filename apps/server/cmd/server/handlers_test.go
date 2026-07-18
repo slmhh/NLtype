@@ -3,11 +3,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
+
+var reqCounter atomic.Int64
 
 func TestMain(m *testing.M) {
 	dir, _ := os.MkdirTemp("", "nltype-test")
@@ -16,6 +21,9 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	jwtKey = []byte("test-secret")
+	os.MkdirAll(dir+"/en", 0755)
+	os.WriteFile(dir+"/en/words.json", []byte(`["hello","world","test","typing","speed"]`), 0644)
+	readJSON(filepath.Join(dataDir, "en", "words.json"), &words)
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
@@ -29,9 +37,16 @@ func authHeader(token string) string {
 	return "Bearer " + token
 }
 
+func resetIPRateLimit() {
+	ipRateMu.Lock()
+	ipRateLimit = make(map[string]*ipRateRecord)
+	ipRateMu.Unlock()
+}
+
 func testReq(method, path, body string) *http.Request {
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = fmt.Sprintf("127.0.0.%d:12345", reqCounter.Add(1))
 	return req
 }
 

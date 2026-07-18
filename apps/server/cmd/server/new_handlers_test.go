@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -107,7 +108,7 @@ func TestSettingsInvalidSchema(t *testing.T) {
 func TestEntryWithCodeLang(t *testing.T) {
 	devToken := registerDevUser(t, "entry_code", "entry_code@test.com", "password123!")
 
-	body := `{"language":"code","code_lang":"python","content":"print('hello world')"}`
+	body := `{"language":"code","codeLang":"python","content":"print('hello world')"}`
 	w := httptest.NewRecorder()
 	handleCreateEntry(w, authReq("POST", "/api/entries", body, devToken))
 	if w.Code != 201 {
@@ -118,8 +119,8 @@ func TestEntryWithCodeLang(t *testing.T) {
 		Entry WordEntry `json:"entry"`
 	}
 	readBody(w, &created)
-	if created.Entry.CodeLang == nil || *created.Entry.CodeLang != "python" {
-		t.Fatalf("expected code_lang=python, got %v", created.Entry.CodeLang)
+	if created.Entry.CodeLang != "python" {
+		t.Fatalf("expected code_lang=python, got %q", created.Entry.CodeLang)
 	}
 
 	// List entries should include code_lang
@@ -134,7 +135,7 @@ func TestEntryWithCodeLang(t *testing.T) {
 	readBody(w2, &listRes)
 	found := false
 	for _, e := range listRes.Entries {
-		if e.CodeLang != nil && *e.CodeLang == "python" {
+		if e.CodeLang == "python" {
 			found = true
 			break
 		}
@@ -175,7 +176,9 @@ func TestResultStats(t *testing.T) {
 
 	// Check stats endpoint
 	w2 := httptest.NewRecorder()
-	handleResultStats(w2, authReq("GET", "/api/results/"+itoa(created.Result.ID)+"/stats", "", token))
+	req2 := authReq("GET", "/api/results/"+itoa(created.Result.ID)+"/stats", "", token)
+	req2.SetPathValue("id", itoa(created.Result.ID))
+	handleResultStats(w2, req2)
 	if w2.Code != 200 {
 		t.Fatalf("get stats: expected 200, got %d", w2.Code)
 	}
@@ -258,11 +261,19 @@ func TestForgotPasswordRateLimit(t *testing.T) {
 	}
 	readBody(w, &meRes)
 
+	// Use a fixed IP to test rate limiting
+	makeReq := func(body string) *http.Request {
+		req := httptest.NewRequest("POST", "/api/auth/forgot-password", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.RemoteAddr = "10.0.0.1:12345"
+		return req
+	}
+
 	// Exhaust the rate limit (3 requests per minute per IP)
 	for i := 0; i < 3; i++ {
 		w2 := httptest.NewRecorder()
 		body := `{"email":"` + meRes.User.Email + `"}`
-		handleForgotPassword(w2, testReq("POST", "/api/auth/forgot-password", body))
+		handleForgotPassword(w2, makeReq(body))
 		if w2.Code != 200 {
 			t.Fatalf("iteration %d: expected 200, got %d", i, w2.Code)
 		}
@@ -271,7 +282,7 @@ func TestForgotPasswordRateLimit(t *testing.T) {
 	// Fourth request should be rate limited
 	w3 := httptest.NewRecorder()
 	body := `{"email":"` + meRes.User.Email + `"}`
-	handleForgotPassword(w3, testReq("POST", "/api/auth/forgot-password", body))
+	handleForgotPassword(w3, makeReq(body))
 	if w3.Code != 429 {
 		t.Fatalf("expected 429 after rate limit, got %d", w3.Code)
 	}
@@ -324,7 +335,9 @@ func TestResultStatsWithEvents(t *testing.T) {
 
 	// Check stats
 	w2 := httptest.NewRecorder()
-	handleResultStats(w2, authReq("GET", "/api/results/"+itoa(created.Result.ID)+"/stats", "", token))
+	req2 := authReq("GET", "/api/results/"+itoa(created.Result.ID)+"/stats", "", token)
+	req2.SetPathValue("id", itoa(created.Result.ID))
+	handleResultStats(w2, req2)
 	if w2.Code != 200 {
 		t.Fatalf("get stats: expected 200, got %d", w2.Code)
 	}

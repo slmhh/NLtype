@@ -45,7 +45,7 @@ func modeLabel(m string) string {
 	case "code":
 		return "代码"
 	case "zen":
-		return "�?
+		return "zen"
 	}
 	return m
 }
@@ -433,7 +433,7 @@ func handleResultStats(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if correct == 0 {
-			errorMap[fmt.Sprintf("%s�?s", exp, typed)]++
+			errorMap[fmt.Sprintf("%s->%s", exp, typed)]++
 		}
 
 		events = append(events, map[string]any{

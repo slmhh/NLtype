@@ -394,7 +394,7 @@ func main() {
 		}
 		resultsRepo.DeleteAll()
 		writeJSON(w, 200, map[string]any{"ok": true})
-	}))
+	})))
 
 	// Result routes (auth required)
 	resultGroup := newGroup("/api/results", requireAuth)

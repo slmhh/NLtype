@@ -29,6 +29,7 @@ func (g *routeGroup) register(mux *http.ServeMux, pattern string, handler http.H
 	}
 	method := pattern[:space]
 	path := strings.TrimRight(pattern[space+1:], "/")
+	var full string
 	if path == "" {
 		full = method + " " + g.prefix
 	} else {
