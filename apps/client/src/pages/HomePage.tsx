@@ -63,7 +63,7 @@ export default function HomePage() {
       return;
     }
     readyRef.current = true;
-    navigate("/game", { state: { config: { ...configRef.current, codeLang } } });
+    navigate("/game", { state: { config: { ...configRef.current, customText: "", codeLang } } });
   }, [category, customText, customTimeLimit, timerLimit, navigate, t, validateTimeLimit]);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function HomePage() {
         navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: timerLimit } } });
       } else {
         readyRef.current = true;
-        navigate("/game", { state: { config: { ...configRef.current, codeLang } } });
+        navigate("/game", { state: { config: { ...configRef.current, customText: "", codeLang } } });
       }
     };
     window.addEventListener("keydown", handler);
