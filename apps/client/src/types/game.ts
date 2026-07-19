@@ -2,6 +2,7 @@ export type GameCategory = "timed" | "passage" | "custom";
 export type GameMode = "time" | "zen" | "words" | "quote" | "custom";
 export type Language = "en" | "zh" | "code";
 export type CodeLang = "typescript" | "javascript" | "python" | "rust" | "go" | "c" | "cpp" | "csharp" | "html" | "css" | "sql";
+export type QuoteLength = "short" | "medium" | "long";
 
 export const CODE_LANGUAGES: CodeLang[] = [
   "typescript", "javascript", "python", "rust", "go", "c", "cpp", "csharp", "html", "css", "sql",
@@ -15,6 +16,7 @@ export interface GameConfig {
   wordCount: number;
   customText?: string;
   codeLang?: CodeLang;
+  quoteLength?: QuoteLength;
 }
 
 export interface ModeEntry {

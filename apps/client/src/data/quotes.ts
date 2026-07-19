@@ -1,4 +1,18 @@
-export const quotes: string[] = [
+export interface Quote {
+  text: string;
+  length: "short" | "medium" | "long";
+}
+
+const SHORT_MAX = 200;
+const LONG_MIN = 500;
+
+function classify(len: number): "short" | "medium" | "long" {
+  if (len <= SHORT_MAX) return "short";
+  if (len >= LONG_MIN) return "long";
+  return "medium";
+}
+
+const raw: string[] = [
   `Two roads diverged in a yellow wood,
 And sorry I could not travel both
 And be one traveler, long I stood
@@ -39,6 +53,12 @@ And that has made all the difference.`,
   "Before software can be reusable it first has to be usable.",
 ];
 
-export function getRandomQuote(): string {
-  return quotes[Math.floor(Math.random() * quotes.length)];
+export const quotes: Quote[] = raw.map((t) => ({ text: t, length: classify(t.length) }));
+
+export function getRandomQuote(length?: "short" | "medium" | "long"): string {
+  const filtered = length ? quotes.filter((q) => q.length === length) : quotes;
+  const pool = filtered.length > 0 ? filtered : quotes;
+  return pool[Math.floor(Math.random() * pool.length)].text;
 }
+
+export type QuoteLength = "short" | "medium" | "long";

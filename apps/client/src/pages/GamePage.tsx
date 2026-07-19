@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import TypingGame from "../components/TypingGame";
 import { getChineseText } from "../data/zh";
 import { getRandomCodeSnippet } from "../data/code";
-import { getRandomQuote } from "../data/quotes";
+import { getRandomQuote, type QuoteLength } from "../data/quotes";
 import { getApprovedEntries } from "../services/entries";
 import type { GameConfig, CodeLang } from "../types/game";
 
@@ -56,7 +56,7 @@ function makeText(config: GameConfig, enEntries: string[], zhEntries: string[], 
 
   switch (config.mode) {
     case "quote":
-      return enEntries.length > 0 ? pickRandom(enEntries) : getRandomQuote();
+      return enEntries.length > 0 ? pickRandom(enEntries) : getRandomQuote(config.quoteLength);
     case "words":
       return generateEnglishWords(config.wordCount, pool);
     case "time":

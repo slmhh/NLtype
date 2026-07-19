@@ -209,6 +209,29 @@ export const dict: Record<UILang, Record<string, string>> = {
     "role.admin": "管理员",
     "role.developer": "开发者",
 
+    // Character stats
+    "game.correct": "正确",
+    "game.incorrect": "错误",
+    "game.missed": "遗漏",
+    "game.extra": "多余",
+    "game.consistency": "一致性",
+
+    // Quote length filter
+    "home.quoteShort": "短",
+    "home.quoteMedium": "中",
+    "home.quoteLong": "长",
+
+    // Custom text persistence
+    "home.saveText": "保存文本",
+    "home.textSaved": "文本已保存",
+    "home.textDeleted": "文本已删除",
+    "home.savedTexts": "已保存的文本",
+    "home.loadText": "载入",
+    "home.deleteText": "删除",
+    "home.textName": "文本名称",
+    "home.textNamePlaceholder": "为这段文本起个名字",
+    "home.textNameRequired": "请输入文本名称",
+
     // game mode labels
     "mode.time": "计时",
     "mode.zen": "禅",
@@ -502,6 +525,29 @@ export const dict: Record<UILang, Record<string, string>> = {
     "role.user": "User",
     "role.admin": "Admin",
     "role.developer": "Developer",
+
+    // Character stats
+    "game.correct": "Correct",
+    "game.incorrect": "Incorrect",
+    "game.missed": "Missed",
+    "game.extra": "Extra",
+    "game.consistency": "Consistency",
+
+    // Quote length filter
+    "home.quoteShort": "Short",
+    "home.quoteMedium": "Medium",
+    "home.quoteLong": "Long",
+
+    // Custom text persistence
+    "home.saveText": "Save",
+    "home.textSaved": "Text saved",
+    "home.textDeleted": "Text deleted",
+    "home.savedTexts": "Saved Texts",
+    "home.loadText": "Load",
+    "home.deleteText": "Delete",
+    "home.textName": "Name",
+    "home.textNamePlaceholder": "Name this text",
+    "home.textNameRequired": "Please enter a name",
 
     // game mode labels
     "mode.time": "Timed",

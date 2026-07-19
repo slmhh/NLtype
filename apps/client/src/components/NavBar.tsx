@@ -125,14 +125,19 @@ export default function NavBar() {
             </button>
           </Dropdown>
         ) : (
-          <Button
-            type="outline"
-            size="mini"
-            onClick={() => setAuthOpen(true)}
-            className="!text-xs !tracking-[0.15em] !rounded-lg !h-8 !border-[var(--border)] !text-[var(--text-secondary)]"
-          >
-            {t("nav.login")}
-          </Button>
+          <>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-[var(--bg-alt)] text-[var(--text-tertiary)]">
+              {t("role.guest")}
+            </span>
+            <Button
+              type="outline"
+              size="mini"
+              onClick={() => setAuthOpen(true)}
+              className="!text-xs !tracking-[0.15em] !rounded-lg !h-8 !border-[var(--border)] !text-[var(--text-secondary)]"
+            >
+              {t("nav.login")}
+            </Button>
+          </>
         )}
       </div>
 

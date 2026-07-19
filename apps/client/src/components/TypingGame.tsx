@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Message, Modal, Statistic, Tag } from "@arco-design/web-react";
+import { Button, Message, Modal, Statistic } from "@arco-design/web-react";
 import { useTypingEngine } from "../hooks/useTypingEngine";
 import { useTimer } from "../hooks/useTimer";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
@@ -107,6 +107,17 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
     const all = [...typingState.wpmHistory, typingState.wpm].filter(Boolean);
     return all.length > 0 ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
   }, [typingState.wpmHistory, typingState.wpm]);
+
+  const missedCount = useMemo(() => Math.max(0, text.length - (typingState.correctCount + typingState.incorrectCount)), [text.length, typingState.correctCount, typingState.incorrectCount]);
+  const extraCount = 0;
+
+  const consistency = useMemo(() => {
+    const all = typingState.wpmHistory.filter(Boolean);
+    if (all.length < 2) return 0;
+    const mean = all.reduce((a, b) => a + b, 0) / all.length;
+    const variance = all.reduce((sum, v) => sum + (v - mean) ** 2, 0) / all.length;
+    return Math.round(Math.sqrt(variance) * 100) / 100;
+  }, [typingState.wpmHistory]);
 
   const minutes = Math.floor(timer.timeLeft / 60);
   const seconds = timer.timeLeft % 60;
@@ -223,13 +234,19 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
             <MiniStat label={t("game.cpm")} value={String(typingState.cpm)} />
           </div>
 
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <Tag color="green" bordered>✓ {typingState.correctCount}</Tag>
-            <span className="text-[var(--text-tertiary)]">·</span>
-            <Tag color="red" bordered>✗ {typingState.incorrectCount}</Tag>
-            <span className="text-[var(--text-tertiary)]">·</span>
-            <Tag bordered color="default">{typingState.rawWpm} raw</Tag>
+          <div className="grid grid-cols-4 gap-2 mb-5">
+            <CharStat label={t("game.correct")} value={String(typingState.correctCount)} color="var(--accent-green)" />
+            <CharStat label={t("game.incorrect")} value={String(typingState.incorrectCount)} color="var(--accent-red)" />
+            <CharStat label={t("game.missed")} value={String(missedCount)} color="var(--text-tertiary)" />
+            <CharStat label={t("game.extra")} value={String(extraCount)} color="var(--text-tertiary)" />
           </div>
+
+          {consistency > 0 && (
+            <div className="flex items-center justify-center gap-2 mb-5">
+              <span className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] uppercase">{t("game.consistency")}</span>
+              <span className="text-sm font-bold font-mono text-[var(--text-primary)]">{consistency} <span className="text-[var(--text-tertiary)] text-xs font-normal">σ</span></span>
+            </div>
+          )}
 
           {typingState.wpmHistory.length > 1 && (
             <div className="mb-5 px-2">
@@ -313,6 +330,15 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl py-3 text-center border border-[var(--border)]">
       <div className="text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums">{value}</div>
       <div className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] uppercase mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function CharStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="rounded-xl py-2.5 text-center border border-[var(--border)]">
+      <div className="text-lg font-bold font-mono tabular-nums" style={{ color }}>{value}</div>
+      <div className="text-[10px] text-[var(--text-tertiary)] tracking-[0.15em] uppercase mt-0.5">{label}</div>
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
-import type { GameConfig, GameCategory, GameMode, Language, CodeLang } from "../types/game";
+import { load, save } from "../services/storage";
+import type { GameConfig, GameCategory, GameMode, Language, CodeLang, QuoteLength } from "../types/game";
 import { TIMED_MODES, PASSAGE_MODES, TIME_OPTIONS, WORD_OPTIONS, LANGUAGES, CODE_LANGUAGES, defaultConfig, sanitizeCustomText } from "../types/game";
 
 export type { GameConfig, GameMode, Language } from "../types/game";
@@ -21,10 +22,14 @@ export default function HomePage() {
   const [customText, setCustomText] = useState("");
   const [customError, setCustomError] = useState("");
   const [codeLang, setCodeLang] = useState<CodeLang>("typescript");
+  const [quoteLength, setQuoteLength] = useState<QuoteLength | undefined>(undefined);
   const [customTimerEnabled, setCustomTimerEnabled] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState(30);
   const [timeInputStr, setTimeInputStr] = useState("30");
   const [mounted, setMounted] = useState(false);
+  const [savedTexts, setSavedTexts] = useState<{ name: string; text: string }[]>(() => load("savedTexts", []));
+  const [saveTextName, setSaveTextName] = useState("");
+  const [showSaveInput, setShowSaveInput] = useState(false);
   const readyRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -32,8 +37,8 @@ export default function HomePage() {
 
   const timerLimit = customTimerEnabled ? customTimeLimit : 0;
 
-  const configRef = useRef({ category, mode, language, timeLimit, wordCount, customText: "", codeLang: "typescript" as CodeLang });
-  configRef.current = { category, mode, language, timeLimit: timerLimit, wordCount, customText, codeLang };
+  const configRef = useRef({ category, mode, language, timeLimit, wordCount, customText: "", codeLang: "typescript" as CodeLang, quoteLength: undefined as QuoteLength | undefined });
+  configRef.current = { category, mode, language, timeLimit: timerLimit, wordCount, customText, codeLang, quoteLength };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -179,6 +184,62 @@ export default function HomePage() {
               <p className="text-red-500 text-xs mt-2">{customError}</p>
             )}
 
+            {/* Saved texts */}
+            {savedTexts.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] uppercase mb-2">{t("home.savedTexts")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {savedTexts.map((st, i) => (
+                    <div key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-alt)] border border-[var(--border)] text-xs">
+                      <button onClick={() => { setCustomText(st.text); textareaRef.current?.focus(); }}
+                        className="text-[var(--accent)] hover:underline tracking-wider font-mono">
+                        {t("home.loadText")}
+                      </button>
+                      <span className="text-[var(--text-tertiary)] max-w-[100px] truncate">{st.name}</span>
+                      <button onClick={() => {
+                        const next = savedTexts.filter((_, j) => j !== i);
+                        setSavedTexts(next);
+                        save("savedTexts", next);
+                      }}
+                        className="text-[var(--text-tertiary)] hover:text-[var(--accent-red)] transition-colors ml-1">
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Save current text */}
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={() => setShowSaveInput(!showSaveInput)}
+                className="text-xs text-[var(--accent)] hover:underline tracking-wider font-mono">
+                + {t("home.saveText")}
+              </button>
+            </div>
+            {showSaveInput && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={saveTextName}
+                  onChange={(e) => setSaveTextName(e.target.value)}
+                  placeholder={t("home.textNamePlaceholder")}
+                  className="flex-1 h-8 px-3 rounded-lg bg-[var(--bg-alt)] border border-[var(--border)] text-xs font-mono focus:outline-none focus:border-[var(--accent)]"
+                  maxLength={50}
+                />
+                <button onClick={() => {
+                  if (!saveTextName.trim()) return;
+                  const next = [...savedTexts, { name: saveTextName.trim(), text: customText }];
+                  setSavedTexts(next);
+                  save("savedTexts", next);
+                  setSaveTextName("");
+                  setShowSaveInput(false);
+                }}
+                  className="h-8 px-3 rounded-lg bg-[var(--accent)] text-white text-xs font-mono tracking-wider">
+                  {t("home.saveText")}
+                </button>
+              </div>
+            )}
+
             {/* Timer toggle for custom mode */}
             <div className="mt-4 flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -281,7 +342,18 @@ export default function HomePage() {
                 </button>
               ))}
               {mode === "zen" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.zenMode")}</span>}
-              {mode === "quote" && <span className="text-[var(--text-tertiary)] text-sm tracking-wider font-mono">{t("home.quoteMode")}</span>}
+              {mode === "quote" && (
+                <div className="flex items-center gap-2">
+                  {(["short", "medium", "long"] as const).map((ql) => (
+                    <button key={ql} onClick={() => setQuoteLength(quoteLength === ql ? undefined : ql)}
+                      className={`px-3 py-1 text-xs tracking-wider rounded-lg transition-all font-mono ${
+                        quoteLength === ql ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                      }`}>
+                      {t(`home.quote${ql.charAt(0).toUpperCase() + ql.slice(1)}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Language */}
