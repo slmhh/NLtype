@@ -11,6 +11,7 @@ import type {
   ChaseResult,
   ChaseMapState,
   WSMessage,
+  ItemType,
 } from "../types/multiplayer";
 
 export interface MultiplayerState {
@@ -24,6 +25,9 @@ export interface MultiplayerState {
   results: PlayerResult[];
   teamScores: TeamScore[];
   chaseResult: ChaseResult | null;
+  myItems: ItemType[];
+  myEffects: string[];
+  lastPickup: { item: ItemType; position: number } | null;
 }
 
 const defaultState: MultiplayerState = {
@@ -37,6 +41,9 @@ const defaultState: MultiplayerState = {
   results: [],
   teamScores: [],
   chaseResult: null,
+  myItems: [],
+  myEffects: [],
+  lastPickup: null,
 };
 
 export function useMultiplayer() {
@@ -53,10 +60,20 @@ export function useMultiplayer() {
     };
 
     addHandler("room:created", (msg) => {
+      const room = msg.payload as RoomInfo;
+      if (!wsClient.userId && room?.players?.length > 0) {
+        // Guests: identify by looking for the first player with matching username
+        // Better: the first player in the list is the creator (host)
+        wsClient.userId = room.players[0].userId;
+      }
       setState((s) => ({ ...s, currentRoom: msg.payload }));
     });
 
     addHandler("room:joined", (msg) => {
+      const room = msg.payload as RoomInfo;
+      if (!wsClient.userId && room?.players?.length > 0) {
+        wsClient.userId = room.players[room.players.length - 1]?.userId || room.players[0].userId;
+      }
       setState((s) => ({ ...s, currentRoom: msg.payload }));
     });
 
@@ -86,7 +103,36 @@ export function useMultiplayer() {
     });
 
     addHandler("game:sync", (msg) => {
-      setState((s) => ({ ...s, syncData: msg.payload }));
+      const payload = msg.payload as GameSyncPayload;
+      const me = payload?.players?.find((pl: PlayerInfo) => pl.userId === wsClient.userId);
+      setState((s) => ({
+        ...s,
+        syncData: payload,
+        myItems: me?.items || [],
+        myEffects: me?.effects || [],
+      }));
+    });
+
+    addHandler("game:item_pickup", (msg) => {
+      const p = msg.payload;
+      if (p && p.userId === wsClient.userId) {
+        setState((s) => ({
+          ...s,
+          lastPickup: { item: p.item, position: p.position },
+        }));
+        setTimeout(() => setState((s) => ({ ...s, lastPickup: null })), 2000);
+      }
+    });
+
+    addHandler("game:item_used", (msg) => {
+      const p = msg.payload;
+      if (p && p.userId === wsClient.userId && p.effect === "teleport") {
+        setState((s) => ({
+          ...s,
+          lastPickup: { item: p.item, position: p.newPos },
+        }));
+        setTimeout(() => setState((s) => ({ ...s, lastPickup: null })), 1500);
+      }
     });
 
     addHandler("game:result", (msg) => {
@@ -153,11 +199,20 @@ export function useMultiplayer() {
     wsClient.send("game:rematch");
   }, []);
 
+  const useItem = useCallback((item: ItemType) => {
+    wsClient.send("game:use_item", { item });
+  }, []);
+
+  const connectHandlerRef = useRef<(() => void) | null>(null);
   const connect = useCallback((token?: string) => {
+    if (connectHandlerRef.current) {
+      connectHandlerRef.current();
+    }
     wsClient.connect(token);
-    wsClient.on("connect", () => {
+    const unsub = wsClient.on("connect", () => {
       setState((s) => ({ ...s, connected: true }));
     });
+    connectHandlerRef.current = unsub;
   }, []);
 
   const disconnect = useCallback(() => {
@@ -178,6 +233,7 @@ export function useMultiplayer() {
     sendProgress,
     sendChat,
     requestRematch,
+    useItem,
   };
 }
 

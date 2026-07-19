@@ -98,7 +98,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         correctCount: typingState.correctCount,
         incorrectCount: typingState.incorrectCount,
         durationSec: Math.round(typingState.elapsedMs / 1000),
-      }, token, typingState.events).then((r) => { setLastResultId(r.id); });
+      }, token, typingState.events).then((r) => { setLastResultId(r.id); }).catch(() => {});
     }
   }, [phase, typingState, gameConfig, token]);
 

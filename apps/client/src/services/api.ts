@@ -17,8 +17,16 @@ export async function api<T>(path: string, opts: ApiOpts = {}): Promise<T> {
   });
 
   const text = await res.text();
-  if (!text) return {} as T;
-  const data = JSON.parse(text);
+  if (!text) {
+    if (!res.ok) throw new Error("Request failed");
+    return {} as T;
+  }
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid server response");
+  }
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data as T;
 }

@@ -8,11 +8,21 @@ class WebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private url: string = "";
   private connected = false;
+  private reconnectAttempts = 0;
+  private pendingMessages: string[] = [];
+  userId: number | null = null;
 
   connect(token?: string) {
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     const host = import.meta.env.DEV ? "localhost:3001" : location.host;
     this.url = `${protocol}//${host}/api/ws${token ? `?token=${token}` : ""}`;
+    // Decode userId from JWT if available
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        this.userId = payload.userId || null;
+      } catch { /* ignore */ }
+    }
     this.doConnect();
   }
 
@@ -26,7 +36,14 @@ class WebSocketClient {
 
     this.ws.onopen = () => {
       this.connected = true;
+      this.reconnectAttempts = 0;
       this.emit("connect", {});
+      // Flush pending messages
+      const pending = this.pendingMessages;
+      this.pendingMessages = [];
+      for (const msg of pending) {
+        this.ws?.send(msg);
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -48,8 +65,10 @@ class WebSocketClient {
 
     this.ws.onclose = () => {
       this.connected = false;
-      // Auto-reconnect after 3s
-      this.reconnectTimer = setTimeout(() => this.doConnect(), 3000);
+      // Auto-reconnect with exponential backoff (1s, 2s, 4s, 8s, ... max 30s)
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+      this.reconnectAttempts++;
+      this.reconnectTimer = setTimeout(() => this.doConnect(), delay);
     };
 
     this.ws.onerror = () => {
@@ -68,11 +87,16 @@ class WebSocketClient {
       this.ws = null;
     }
     this.connected = false;
+    this.reconnectAttempts = 0;
+    this.pendingMessages = [];
   }
 
   send(type: string, payload?: any) {
+    const msg = JSON.stringify({ type, payload });
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type, payload }));
+      this.ws.send(msg);
+    } else {
+      this.pendingMessages.push(msg);
     }
   }
 

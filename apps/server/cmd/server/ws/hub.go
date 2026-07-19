@@ -39,7 +39,6 @@ func (h *Hub) handleClient(c *Client) {
 
 	// Set up ping/pong
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	lastPong := time.Now()
 
 	// Read messages in a loop
 	for {
@@ -52,8 +51,6 @@ func (h *Hub) handleClient(c *Client) {
 			return
 		}
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
-		lastPong = time.Now()
-		_ = lastPong
 
 		var msg WSMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
@@ -83,6 +80,8 @@ func (h *Hub) dispatch(c *Client, msg *WSMessage) {
 		h.handleChat(c, msg.Payload)
 	case MsgRematch:
 		h.handleRematch(c)
+	case MsgUseItem:
+		h.handleUseItem(c, msg.Payload)
 	}
 }
 
@@ -281,6 +280,22 @@ func (h *Hub) handleChat(c *Client, payload interface{}) {
 		"username": c.Username,
 		"text":     msg.Text,
 	})
+}
+
+func (h *Hub) handleUseItem(c *Client, payload interface{}) {
+	var req UseItemPayload
+	if err := marshalPayload(payload, &req); err != nil {
+		return
+	}
+
+	h.mu.RLock()
+	room, ok := h.rooms[c.RoomID]
+	h.mu.RUnlock()
+	if !ok {
+		return
+	}
+
+	room.UseItem(c.UserID, req.Item)
 }
 
 func (h *Hub) handleRematch(c *Client) {

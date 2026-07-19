@@ -1,3 +1,5 @@
+export type ItemType = "speed_boost" | "slow_trap" | "shield" | "teleport";
+
 export type GameMode = "race" | "time_battle" | "accuracy" | "elimination" | "team_battle" | "marathon" | "chase";
 
 export type RoomStatus = "waiting" | "countdown" | "playing" | "result";
@@ -14,6 +16,8 @@ export interface PlayerInfo {
   role?: string;
   finished: boolean;
   ready: boolean;
+  items?: ItemType[];
+  effects?: string[];
 }
 
 export interface RoomSettings {
@@ -57,11 +61,18 @@ export interface GameSyncPayload {
   chaseMap?: ChaseMapState;
 }
 
+export interface ItemPos {
+  position: number;
+  item: ItemType;
+  collected: boolean;
+}
+
 export interface ChaseMapState {
   copPosition: number;
   robberPosition: number;
   distance: number;
   mapLength: number;
+  itemPositions?: ItemPos[];
 }
 
 export interface PlayerResult {

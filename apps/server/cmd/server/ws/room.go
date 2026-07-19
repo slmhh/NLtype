@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -27,19 +26,23 @@ func generateCode() string {
 }
 
 type PlayerState struct {
-	Client     *Client
-	Progress   int
-	WPM        float64
-	Accuracy   float64
-	CPM        float64
-	RawWPM     float64
-	Finished   bool
-	Ready      bool
-	Eliminated bool
-	Team       string
-	Role       string
-	FinishedAt time.Time
-	StartPos   int // for chase mode, starting position offset
+	Client        *Client
+	Progress      int
+	WPM           float64
+	Accuracy      float64
+	CPM           float64
+	RawWPM        float64
+	Finished      bool
+	Ready         bool
+	Eliminated    bool
+	Team          string
+	Role          string
+	FinishedAt    time.Time
+	StartPos      int
+	Items         []ItemType
+	SpeedBoostEnd time.Time
+	SlowEnd       time.Time
+	HasShield     bool
 }
 
 type Room struct {
@@ -62,9 +65,10 @@ type Room struct {
 	ticker      *time.Ticker
 	stopTicker  chan struct{}
 	elimTick    int // elimination tick counter
-	chaseCopID  int // for chase mode
+	chaseCopID    int
 	chaseRobberID int
 	chaseMapLen   int
+	chaseItems    []ItemPos
 }
 
 func NewRoom(settings RoomSettings, hostUser *UserInfo) *Room {
@@ -180,6 +184,17 @@ func (r *Room) PlayerList() []PlayerInfo {
 	list := make([]PlayerInfo, 0, len(r.PlayerIdx))
 	for _, id := range r.PlayerIdx {
 		p := r.Players[id]
+		effects := make([]string, 0)
+		if time.Now().Before(p.SpeedBoostEnd) {
+			effects = append(effects, "speed_boost")
+		}
+		if time.Now().Before(p.SlowEnd) {
+			effects = append(effects, "slow")
+		}
+		if p.HasShield {
+			effects = append(effects, "shield")
+		}
+
 		list = append(list, PlayerInfo{
 			UserID:     id,
 			Username:   p.Client.Username,
@@ -192,6 +207,8 @@ func (r *Room) PlayerList() []PlayerInfo {
 			Role:       p.Role,
 			Finished:   p.Finished,
 			Ready:      p.Ready,
+			Items:      p.Items,
+			Effects:    effects,
 		})
 	}
 	return list
@@ -218,6 +235,16 @@ func (r *Room) Broadcast(msgType string, payload interface{}) {
 	defer r.mu.RUnlock()
 	for _, p := range r.Players {
 		p.Client.Send(msgType, payload)
+	}
+}
+
+func (r *Room) broadcastExcept(userID int, msgType string, payload interface{}) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.Players {
+		if p.Client.UserID != userID {
+			p.Client.Send(msgType, payload)
+		}
 	}
 }
 
@@ -252,6 +279,7 @@ func (r *Room) StartGame() {
 	r.Duration = r.Settings.Duration
 	if r.Settings.Mode == ModeChase {
 		r.chaseMapLen = 100
+		r.chaseItems = generateChaseItems(r.chaseMapLen)
 		for _, id := range r.PlayerIdx {
 			p := r.Players[id]
 			if p.Role == "cop" {
@@ -395,11 +423,20 @@ func (r *Room) getSyncPayload() GameSyncPayload {
 		if rp, ok := r.Players[r.chaseRobberID]; ok {
 			robberPos = rp.Progress
 		}
+		// Only send items the player hasn't passed yet
+		visibleItems := make([]ItemPos, 0)
+		for _, ip := range r.chaseItems {
+			if ip.Collected {
+				continue
+			}
+			visibleItems = append(visibleItems, ip)
+		}
 		payload.ChaseMap = &ChaseMapState{
 			CopPosition:    copPos,
 			RobberPosition: robberPos,
 			Distance:       robberPos - copPos,
 			MapLength:      r.chaseMapLen,
+			ItemPositions:  visibleItems,
 		}
 	}
 
@@ -421,21 +458,56 @@ func (r *Room) UpdateProgress(userID int, prog *GameProgressPayload) {
 	if mode == ModeChase {
 		p.WPM = prog.WPM
 		p.Accuracy = prog.Accuracy
-		// Calculate map position based on correct/incorrect ratio
-		// Each correct word (5 chars) → +1 step. Each error → -0.3 step.
-		// For simplicity, progress = (correctCount - incorrectCount*0.3) mapped to map length
-		correctWeight := float64(prog.Position)
+		// Calculate move distance with item effects
+		move := 1
+		if time.Now().Before(p.SpeedBoostEnd) {
+			move = 2 // speed boost: double movement
+		}
+		if time.Now().Before(p.SlowEnd) {
+			move = 0 // slowed: no movement
+		}
+		if p.Role == "robber" {
+			// Check if cop used slow trap on robber
+			if cop, ok := r.Players[r.chaseCopID]; ok && time.Now().Before(cop.SlowEnd) {
+				// Cop's active slow trap on robber not applied here
+				// The slow effect on robber is tracked via robber's SlowEnd
+			}
+		}
+
+		prev := p.Progress
 		if p.Role == "cop" {
-			newPos := int(correctWeight * 0.5)
+			newPos := prev + move
 			if newPos > p.Progress {
 				p.Progress = newPos
 			}
 		} else {
-			newPos := 20 + int(correctWeight*0.5)
+			newPos := prev + move
 			if newPos > p.Progress {
 				p.Progress = newPos
 			}
 		}
+
+		// Check item pickup
+		for i, ip := range r.chaseItems {
+			if ip.Collected {
+				continue
+			}
+			if p.Progress >= ip.Position && prev < ip.Position {
+				r.chaseItems[i].Collected = true
+				p.Items = append(p.Items, ip.Item)
+				// Broadcast item pickup
+				r.broadcastExcept(userID, MsgItemPickup, map[string]interface{}{
+					"userId":   userID,
+					"position": ip.Position,
+				})
+				r.Players[userID].Client.Send(MsgItemPickup, map[string]interface{}{
+					"userId":   userID,
+					"item":     ip.Item,
+					"position": ip.Position,
+				})
+			}
+		}
+
 		if p.Progress < 0 {
 			p.Progress = 0
 		}
@@ -516,7 +588,10 @@ func (r *Room) EndGame() {
 	r.Status = StatusResult
 	if r.ticker != nil {
 		r.ticker.Stop()
-		r.stopTicker <- struct{}{}
+		select {
+		case r.stopTicker <- struct{}{}:
+		default:
+		}
 	}
 	r.mu.Unlock()
 
@@ -699,6 +774,73 @@ func (r *Room) doChaseTick() {
 	}
 }
 
+func (r *Room) UseItem(userID int, item ItemType) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	def, ok := GetItemDef(item)
+	if !ok {
+		return
+	}
+
+	p, ok := r.Players[userID]
+	if !ok || r.Settings.Mode != ModeChase {
+		return
+	}
+
+	found := -1
+	for i, it := range p.Items {
+		if it == item {
+			found = i
+			break
+		}
+	}
+	if found < 0 {
+		return
+	}
+	p.Items = append(p.Items[:found], p.Items[found+1:]...)
+	r.Players[userID] = p
+
+	handler, ok := effectHandlers[def.EffectType]
+	if !ok {
+		return
+	}
+
+	targetID := getOpponentID(r, userID)
+	handler(r, userID, targetID, def)
+
+	r.Broadcast(MsgRoomUpdate, r.GetRoomInfo())
+}
+
+func generateChaseItems(mapLen int) []ItemPos {
+	allDefs := GetAllItemDefs()
+	if len(allDefs) == 0 {
+		return nil
+	}
+
+	positions := make([]ItemPos, 0)
+	used := make(map[int]bool)
+
+	for i := 0; i < 6; i++ {
+		pos := 15 + i*(mapLen-15)/6 + (mapLen/30)*(i%3-1)
+		if pos < 15 {
+			pos = 15
+		}
+		if pos >= mapLen {
+			pos = mapLen - 5
+		}
+		if used[pos] {
+			continue
+		}
+		used[pos] = true
+		positions = append(positions, ItemPos{
+			Position: pos,
+			Item:     allDefs[i%len(allDefs)].ID,
+		})
+	}
+	return positions
+}
+
 func (r *Room) Rematch(userID int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -739,7 +881,4 @@ func generateGameText(settings RoomSettings) string {
 	}
 }
 
-func init() {
-	// Ensure hostID consistency on player add
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
+

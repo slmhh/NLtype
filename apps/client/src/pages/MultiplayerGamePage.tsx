@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Modal, Button } from "@arco-design/web-react";
+import { Modal, Button, Tooltip } from "@arco-design/web-react";
 import { useMultiplayer } from "../stores/multiplayer";
 import { useI18n } from "../context/I18nContext";
 import { TypingDisplay } from "../components/TypingDisplay";
-import type { PlayerInfo, RoomInfo, GameMode } from "../types/multiplayer";
+import type { PlayerInfo, RoomInfo, GameMode, ItemType } from "../types/multiplayer";
+import { getItemDef, getAllItemDefs } from "../data/items";
 
 const MODE_LABELS: Record<string, string> = {
   race: "Race",
@@ -24,7 +25,7 @@ export default function MultiplayerGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
-  const { state: mpState, sendProgress, leaveRoom, requestRematch } = useMultiplayer();
+  const { state: mpState, sendProgress, leaveRoom, requestRematch, useItem } = useMultiplayer();
   const roomData: RoomInfo | null = (location.state as any)?.room || mpState.currentRoom;
   const mode = getMode(mpState, roomData);
 
@@ -210,7 +211,18 @@ export default function MultiplayerGamePage() {
           <div className="flex-1 min-w-0">
             {/* Chase map */}
             {mode === "chase" && mpState.syncData?.chaseMap && (
-              <ChaseMapView chaseMap={mpState.syncData.chaseMap} />
+              <>
+                <ChaseMapView chaseMap={mpState.syncData.chaseMap} />
+                <ItemBar items={mpState.myItems} effects={mpState.myEffects} onUse={useItem} />
+                {mpState.lastPickup && (() => {
+                  const def = getItemDef(mpState.lastPickup.item);
+                  return def ? (
+                    <div className="mb-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-center text-xs text-green-400 font-mono animate-pulse">
+                      + {def.icon} {def.name}!
+                    </div>
+                  ) : null;
+                })()}
+              </>
             )}
 
             {/* Text display */}
@@ -367,7 +379,7 @@ export default function MultiplayerGamePage() {
   );
 }
 
-function ChaseMapView({ chaseMap }: { chaseMap: { copPosition: number; robberPosition: number; distance: number; mapLength: number } }) {
+function ChaseMapView({ chaseMap }: { chaseMap: { copPosition: number; robberPosition: number; distance: number; mapLength: number; itemPositions?: { position: number; item: string }[] } }) {
   const total = chaseMap.mapLength || 100;
   const copPct = Math.min(100, (chaseMap.copPosition / total) * 100);
   const robberPct = Math.min(100, (chaseMap.robberPosition / total) * 100);
@@ -383,6 +395,16 @@ function ChaseMapView({ chaseMap }: { chaseMap: { copPosition: number; robberPos
         {/* Start/Finish labels */}
         <span className="absolute left-1 bottom-0.5 text-[8px] text-[var(--text-tertiary)]">Start</span>
         <span className="absolute right-1 bottom-0.5 text-[8px] text-[var(--text-tertiary)]">Finish</span>
+
+        {/* Item markers */}
+        {chaseMap.itemPositions?.map((ip, i) => {
+          const pct = Math.min(95, (ip.position / total) * 100);
+          return (
+            <div key={i} className="absolute top-1/2 -translate-y-1/2" style={{ left: `${pct}%` }}>
+              <span className="text-[10px] opacity-60 hover:opacity-100 transition-opacity">{getItemDef(ip.item as ItemType)?.icon || "?"}</span>
+            </div>
+          );
+        })}
 
         {/* Cop */}
         <div className="absolute top-1 transition-all duration-500" style={{ left: `${copPct}%` }}>
@@ -490,6 +512,63 @@ function EmptyRanking() {
     <div className="text-center py-6 text-xs text-[var(--text-tertiary)] tracking-wider">
       Waiting for game...
     </div>
+  );
+}
+
+function ItemBar({ items, effects, onUse }: { items: ItemType[]; effects: string[]; onUse: (item: ItemType) => void }) {
+  const allDefs = getAllItemDefs();
+  const counts = items.reduce<Record<string, number>>((acc, i) => {
+    acc[i] = (acc[i] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div className="mb-3 p-2.5 rounded-xl bg-card border border-[var(--border)]">
+      <p className="text-[9px] text-[var(--text-tertiary)] tracking-[0.2em] uppercase mb-2 font-mono">Items</p>
+      <div className="flex gap-2">
+        {allDefs.map((def) => {
+          const count = counts[def.id] || 0;
+          const active = effects.includes(def.effectType);
+          return (
+            <Tooltip key={def.id} content={`${def.icon} ${def.name}: ${def.description}${count > 0 ? "" : " (none)"}`}>
+              <button
+                onClick={() => { if (count > 0) onUse(def.id); }}
+                disabled={count <= 0}
+                className={`relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                  active
+                    ? "bg-[var(--accent-soft)] border-[var(--accent)] text-[var(--accent)]"
+                    : count > 0
+                    ? "bg-[var(--bg-alt)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)] cursor-pointer"
+                    : "bg-[var(--bg-alt)]/50 border-transparent text-[var(--text-tertiary)] opacity-40 cursor-not-allowed"
+                }`}
+              >
+                <span>{def.icon}</span>
+                {count > 0 && <span className="font-bold">{count}</span>}
+                {active && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />}
+              </button>
+            </Tooltip>
+          );
+        })}
+      </div>
+      {effects.length > 0 && (
+        <div className="flex gap-1.5 mt-1.5">
+          {effects.map((eff) => {
+            const def = getAllItemDefs().find((d) => d.effectType === eff || d.id === eff);
+            if (!def) return null;
+            const colors: Record<string, string> = { speed_boost: "text-blue-400", slow: "text-purple-400", shield: "text-green-400" };
+            return <EffectBadge key={eff} icon={def.icon} label={def.effectType.toUpperCase()} color={colors[eff] || "text-[var(--accent)]"} />;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EffectBadge({ icon, label, color }: { icon: string; label: string; color: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono ${color} bg-[var(--accent-soft)]`}>
+      {icon} {label}
+    </span>
   );
 }
 

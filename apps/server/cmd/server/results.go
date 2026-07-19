@@ -34,6 +34,13 @@ type LeaderboardEntry struct {
 	Date       string `json:"date"`
 }
 
+func safeDate(s string) string {
+	if len(s) < 10 {
+		return s
+	}
+	return s[:10]
+}
+
 func modeLabel(m string) string {
 	switch m {
 	case "time":
@@ -285,7 +292,7 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 			Accuracy:  accuracy,
 			ModeLabel: modeLabel(mode),
 			LangLabel: langLabel(lang),
-			Date:      createdAt[:10],
+			Date:      safeDate(createdAt),
 		})
 		rank++
 	}

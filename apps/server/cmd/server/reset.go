@@ -120,6 +120,8 @@ func handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.Exec("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", tokenID)
+	if _, err := db.Exec("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", tokenID); err != nil {
+		log.Printf("failed to mark token %d as used: %v", tokenID, err)
+	}
 	writeJSON(w, 200, map[string]any{"ok": true})
 }

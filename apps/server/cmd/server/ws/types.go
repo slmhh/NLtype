@@ -23,19 +23,30 @@ const (
 	StatusResult    RoomStatus = "result"
 )
 
+type ItemType string
+
+const (
+	ItemSpeedBoost ItemType = "speed_boost"
+	ItemSlowTrap   ItemType = "slow_trap"
+	ItemShield     ItemType = "shield"
+	ItemTeleport   ItemType = "teleport"
+)
+
 // PlayerInfo is sent to clients to describe a player.
 type PlayerInfo struct {
-	UserID   int     `json:"userId"`
-	Username string  `json:"username"`
-	Progress int     `json:"progress"`
-	WPM      float64 `json:"wpm"`
-	Accuracy float64 `json:"accuracy"`
-	Position int     `json:"position"`
-	Eliminated bool  `json:"eliminated,omitempty"`
-	Team     string  `json:"team,omitempty"`
-	Role     string  `json:"role,omitempty"` // "cop" or "robber" for chase mode
-	Finished bool    `json:"finished"`
-	Ready    bool    `json:"ready"`
+	UserID     int        `json:"userId"`
+	Username   string     `json:"username"`
+	Progress   int        `json:"progress"`
+	WPM        float64    `json:"wpm"`
+	Accuracy   float64    `json:"accuracy"`
+	Position   int        `json:"position"`
+	Eliminated bool       `json:"eliminated,omitempty"`
+	Team       string     `json:"team,omitempty"`
+	Role       string     `json:"role,omitempty"` // "cop" or "robber" for chase mode
+	Finished   bool       `json:"finished"`
+	Ready      bool       `json:"ready"`
+	Items      []ItemType `json:"items,omitempty"`
+	Effects    []string   `json:"effects,omitempty"` // active effect names
 }
 
 type RoomSettings struct {
@@ -78,6 +89,7 @@ const (
 	MsgGameProgress  = "game:progress"
 	MsgChat          = "room:chat"
 	MsgRematch       = "game:rematch"
+	MsgUseItem       = "game:use_item"
 )
 
 // Server -> Client messages
@@ -94,6 +106,8 @@ const (
 	MsgError         = "error"
 	MsgChatMsg       = "room:chat"
 	MsgPlayerEliminated = "game:eliminated"
+	MsgItemPickup    = "game:item_pickup"
+	MsgItemUse       = "game:item_used"
 )
 
 type GameProgressPayload struct {
@@ -111,10 +125,17 @@ type GameSyncPayload struct {
 }
 
 type ChaseMapState struct {
-	CopPosition    int `json:"copPosition"`
-	RobberPosition int `json:"robberPosition"`
-	Distance       int `json:"distance"`
-	MapLength      int `json:"mapLength"`
+	CopPosition    int        `json:"copPosition"`
+	RobberPosition int        `json:"robberPosition"`
+	Distance       int        `json:"distance"`
+	MapLength      int        `json:"mapLength"`
+	ItemPositions  []ItemPos  `json:"itemPositions,omitempty"`
+}
+
+type ItemPos struct {
+	Position int      `json:"position"`
+	Item     ItemType `json:"item"`
+	Collected bool   `json:"collected"`
 }
 
 type GameResultPayload struct {
@@ -134,6 +155,10 @@ type ChaseResult struct {
 	WinnerRole string `json:"winnerRole"`
 	WinnerID   int    `json:"winnerId"`
 	Reason     string `json:"reason"` // "caught" or "escaped"
+}
+
+type UseItemPayload struct {
+	Item ItemType `json:"item"`
 }
 
 type PlayerResult struct {

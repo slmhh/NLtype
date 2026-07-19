@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Message, Statistic, Card } from "@arco-design/web-react";
+import { Message, Card } from "@arco-design/web-react";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { api } from "../services/api";
