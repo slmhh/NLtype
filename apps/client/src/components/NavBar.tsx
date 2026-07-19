@@ -59,6 +59,9 @@ export default function NavBar() {
         <NavLink to="/leaderboard" className="no-underline">
           {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.leaderboard")}</span>}
         </NavLink>
+        <NavLink to="/lobby" className="no-underline">
+          {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.multiplayer")}</span>}
+        </NavLink>
         {user && (
           <NavLink to="/entries" className="no-underline">
             {({ isActive }) => <span className={navLinkClass(isActive)}>{t("nav.entries")}</span>}

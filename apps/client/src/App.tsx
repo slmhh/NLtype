@@ -14,6 +14,9 @@ import DeveloperPage from "./pages/DeveloperPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import DailyPage from "./pages/DailyPage";
+import LobbyPage from "./pages/LobbyPage";
+import RoomPage from "./pages/RoomPage";
+import MultiplayerGamePage from "./pages/MultiplayerGamePage";
 
 function AppLayout() {
   return (
@@ -45,6 +48,9 @@ export default function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/daily" element={<DailyPage />} />
+                  <Route path="/lobby" element={<LobbyPage />} />
+                  <Route path="/multiplayer/room" element={<RoomPage />} />
+                  <Route path="/multiplayer/game" element={<MultiplayerGamePage />} />
                 </Route>
               </Routes>
             </BrowserRouter>

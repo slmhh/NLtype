@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/typerush/server/cmd/server/ws"
 )
 
 var (
@@ -313,6 +315,38 @@ func parseID(s string) (int, error) {
 
 // ���� Main ����
 
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := ws.Upgrade(w, r)
+	if err != nil {
+		log.Printf("WebSocket upgrade failed: %v", err)
+		http.Error(w, "WebSocket upgrade failed", http.StatusBadRequest)
+		return
+	}
+
+	// Try to authenticate via JWT token in query param or header
+	claims := getAuthUser(r)
+	userID := 0
+	username := "Guest"
+	role := "user"
+
+	if claims != nil {
+		userID = claims.ID
+		username = claims.Username
+		role = claims.Role
+	} else {
+		// Generate a temporary guest ID
+		userID = int(time.Now().UnixNano() % 1000000)
+		username = "Guest-" + strconv.Itoa(userID%10000)
+	}
+
+	client := ws.NewClient(conn, userID, username, role)
+
+	// Register with the hub via its register channel
+	ws.DefaultHub.Register <- client
+}
+
+var _ = ws.DefaultHub
+
 func spaFileServer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
@@ -411,8 +445,13 @@ func main() {
 	dailyGroup := newGroup("/api/daily", requireAuth)
 	dailyGroup.register(mux, "POST /attempt", handleSubmitDailyAttempt)
 
+	// WebSocket endpoint (under /api to use existing dev proxy)
+	mux.HandleFunc("/api/ws", handleWebSocket)
+
 	// SPA fallback for all non-API routes
 	mux.HandleFunc("/", spaFileServer)
+
+	go ws.DefaultHub.Run()
 
 	port := getEnv("PORT", "3001")
 	log.Printf("Server starting on :%s", port)

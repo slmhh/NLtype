@@ -16,6 +16,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "nav.adminPanel": "管理面板",
     "nav.devPanel": "开发者面板",
     "nav.logout": "退出登录",
+    "nav.multiplayer": "多人",
     "nav.login": "登录",
 
     // AuthModal
@@ -316,6 +317,28 @@ export const dict: Record<UILang, Record<string, string>> = {
     "daily.colAcc": "准确率",
     "daily.backToHome": "返回首页",
 
+    // Multiplayer
+    "multiplayer.title": "多人游戏",
+    "multiplayer.connecting": "连接中...",
+    "multiplayer.activeRooms": "个活跃房间",
+    "multiplayer.createRoom": "创建房间",
+    "multiplayer.roomCode": "房间码",
+    "multiplayer.join": "加入",
+    "multiplayer.or": "或",
+    "multiplayer.quickMatch": "快速匹配",
+    "multiplayer.noRooms": "暂无活跃房间",
+    "multiplayer.mode": "模式",
+    "multiplayer.duration": "时长",
+    "multiplayer.startGame": "开始游戏",
+    "multiplayer.clickReady": "准备",
+    "multiplayer.ready": "已准备",
+    "multiplayer.shareCode": "分享房间码给好友",
+    "multiplayer.rankings": "实时排名",
+    "multiplayer.waiting": "等待游戏开始...",
+    "multiplayer.waitingForGame": "等待游戏开始...",
+    "multiplayer.rematch": "再来一局",
+    "multiplayer.backToLobby": "返回大厅",
+
     // general
     "general.seconds": "秒",
     "general.words": "词",
@@ -333,6 +356,7 @@ export const dict: Record<UILang, Record<string, string>> = {
     "nav.adminPanel": "Admin Panel",
     "nav.devPanel": "Dev Panel",
     "nav.logout": "Logout",
+    "nav.multiplayer": "Multiplayer",
     "nav.login": "Login",
 
     // AuthModal
@@ -631,6 +655,28 @@ export const dict: Record<UILang, Record<string, string>> = {
     "daily.colUser": "Player",
     "daily.colAcc": "Accuracy",
     "daily.backToHome": "Back to Home",
+
+    // Multiplayer
+    "multiplayer.title": "Multiplayer",
+    "multiplayer.connecting": "Connecting...",
+    "multiplayer.activeRooms": "active rooms",
+    "multiplayer.createRoom": "Create Room",
+    "multiplayer.roomCode": "Room Code",
+    "multiplayer.join": "Join",
+    "multiplayer.or": "or",
+    "multiplayer.quickMatch": "Quick Match",
+    "multiplayer.noRooms": "No active rooms",
+    "multiplayer.mode": "Mode",
+    "multiplayer.duration": "Duration",
+    "multiplayer.startGame": "Start Game",
+    "multiplayer.clickReady": "Ready",
+    "multiplayer.ready": "Ready!",
+    "multiplayer.shareCode": "Share this code with friends",
+    "multiplayer.rankings": "Live Rankings",
+    "multiplayer.waiting": "Waiting for game...",
+    "multiplayer.waitingForGame": "Waiting for game to start...",
+    "multiplayer.rematch": "Rematch",
+    "multiplayer.backToLobby": "Back to Lobby",
 
     // general
     "general.seconds": "s",
