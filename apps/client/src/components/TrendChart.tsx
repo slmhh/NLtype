@@ -157,13 +157,13 @@ export function TrendChart({ results }: TrendChartProps) {
         <path d={wpmPath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" />
 
         {/* Accuracy line */}
-        <path d={accPath} fill="none" stroke="var(--accent-green, #4ade80)" strokeWidth={2} strokeLinejoin="round" strokeDasharray="4 3" />
+        <path d={accPath} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" strokeDasharray="4 3" />
 
         {/* Data point dots */}
         {daily.map((d, i) => (
           <g key={i}>
             <circle cx={PAD.l + i * stepX} cy={PAD.t + IH - ((d.wpm - minWpm) / (maxWpm - minWpm || 1)) * IH} r={2.5} fill="var(--accent)" />
-            <circle cx={PAD.l + i * stepX} cy={PAD.t + IH - ((d.acc - minAcc) / (maxAcc - minAcc || 1)) * IH} r={2.5} fill="var(--accent-green, #4ade80)" />
+            <circle cx={PAD.l + i * stepX} cy={PAD.t + IH - ((d.acc - minAcc) / (maxAcc - minAcc || 1)) * IH} r={2.5} fill="#4ade80" />
           </g>
         ))}
 
@@ -182,7 +182,7 @@ export function TrendChart({ results }: TrendChartProps) {
           WPM
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-[var(--accent-green, #4ade80)]" style={{ textDecoration: "none" }} />
+          <span className="w-3 h-0.5" style={{ backgroundColor: "#4ade80", textDecoration: "none" }} />
           {t("profile.accuracy")}
         </span>
       </div>

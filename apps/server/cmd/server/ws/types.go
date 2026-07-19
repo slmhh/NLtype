@@ -104,12 +104,36 @@ type GameProgressPayload struct {
 }
 
 type GameSyncPayload struct {
-	Players []PlayerInfo `json:"players"`
-	TimeLeft int         `json:"timeLeft,omitempty"`
+	Players  []PlayerInfo  `json:"players"`
+	TimeLeft int           `json:"timeLeft,omitempty"`
+	Mode     GameMode      `json:"mode,omitempty"`
+	ChaseMap *ChaseMapState `json:"chaseMap,omitempty"`
+}
+
+type ChaseMapState struct {
+	CopPosition    int `json:"copPosition"`
+	RobberPosition int `json:"robberPosition"`
+	Distance       int `json:"distance"`
+	MapLength      int `json:"mapLength"`
 }
 
 type GameResultPayload struct {
-	Results []PlayerResult `json:"results"`
+	Results   []PlayerResult `json:"results"`
+	TeamScores []TeamScore   `json:"teamScores,omitempty"`
+	ChaseResult *ChaseResult `json:"chaseResult,omitempty"`
+}
+
+type TeamScore struct {
+	Team      string  `json:"team"`
+	AvgWPM    float64 `json:"avgWpm"`
+	AvgAcc    float64 `json:"avgAcc"`
+	TotalWPM  float64 `json:"totalWpm"`
+}
+
+type ChaseResult struct {
+	WinnerRole string `json:"winnerRole"`
+	WinnerID   int    `json:"winnerId"`
+	Reason     string `json:"reason"` // "caught" or "escaped"
 }
 
 type PlayerResult struct {

@@ -57,11 +57,14 @@ type Room struct {
 	Text      string
 
 	// Game state
-	StartTime  time.Time
-	Duration   int
-	ticker     *time.Ticker
-	stopTicker chan struct{}
-	elimTick   int // elimination tick counter
+	StartTime   time.Time
+	Duration    int
+	ticker      *time.Ticker
+	stopTicker  chan struct{}
+	elimTick    int // elimination tick counter
+	chaseCopID  int // for chase mode
+	chaseRobberID int
+	chaseMapLen   int
 }
 
 func NewRoom(settings RoomSettings, hostUser *UserInfo) *Room {
@@ -247,6 +250,19 @@ func (r *Room) StartGame() {
 	r.Status = StatusPlaying
 	r.StartTime = time.Now()
 	r.Duration = r.Settings.Duration
+	if r.Settings.Mode == ModeChase {
+		r.chaseMapLen = 100
+		for _, id := range r.PlayerIdx {
+			p := r.Players[id]
+			if p.Role == "cop" {
+				r.chaseCopID = id
+				p.Progress = 0
+			} else {
+				r.chaseRobberID = id
+				p.Progress = 20 // robber starts ahead
+			}
+		}
+	}
 	r.mu.Unlock()
 
 	r.Broadcast(MsgGameStart, map[string]interface{}{
@@ -271,8 +287,8 @@ func (r *Room) StartGame() {
 		}
 	}()
 
-	// Auto-end for timed modes
-	if r.Duration > 0 {
+	// Auto-end for timed modes (not marathon, not chase)
+	if r.Duration > 0 && r.Settings.Mode != ModeMarathon {
 		time.AfterFunc(time.Duration(r.Duration)*time.Second, func() {
 			r.EndGame()
 		})
@@ -291,16 +307,21 @@ func (r *Room) tick() {
 	// Broadcast sync
 	r.Broadcast(MsgGameSync, r.getSyncPayload())
 
-	// Elimination mode check
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Elimination mode
 	if mode == ModeElimination {
-		r.mu.Lock()
 		r.elimTick++
-		// Every 30 seconds (150 ticks at 200ms)
 		if r.elimTick >= 150 && len(r.PlayerIdx) > 1 {
 			r.elimTick = 0
 			r.doEliminationTick()
 		}
-		r.mu.Unlock()
+	}
+
+	// Chase mode: update positions based on progress
+	if mode == ModeChase {
+		r.doChaseTick()
 	}
 }
 
@@ -358,10 +379,31 @@ func (r *Room) getSyncPayload() GameSyncPayload {
 		}
 	}
 
-	return GameSyncPayload{
+	payload := GameSyncPayload{
 		Players:  players,
 		TimeLeft: timeLeft,
+		Mode:     r.Settings.Mode,
 	}
+
+	// Chase mode map state
+	if r.Settings.Mode == ModeChase {
+		copPos := 0
+		robberPos := 20
+		if cp, ok := r.Players[r.chaseCopID]; ok {
+			copPos = cp.Progress
+		}
+		if rp, ok := r.Players[r.chaseRobberID]; ok {
+			robberPos = rp.Progress
+		}
+		payload.ChaseMap = &ChaseMapState{
+			CopPosition:    copPos,
+			RobberPosition: robberPos,
+			Distance:       robberPos - copPos,
+			MapLength:      r.chaseMapLen,
+		}
+	}
+
+	return payload
 }
 
 func (r *Room) UpdateProgress(userID int, prog *GameProgressPayload) {
@@ -373,6 +415,33 @@ func (r *Room) UpdateProgress(userID int, prog *GameProgressPayload) {
 		return
 	}
 
+	mode := r.Settings.Mode
+
+	// Chase mode: convert text progress to map position
+	if mode == ModeChase {
+		p.WPM = prog.WPM
+		p.Accuracy = prog.Accuracy
+		// Calculate map position based on correct/incorrect ratio
+		// Each correct word (5 chars) → +1 step. Each error → -0.3 step.
+		// For simplicity, progress = (correctCount - incorrectCount*0.3) mapped to map length
+		correctWeight := float64(prog.Position)
+		if p.Role == "cop" {
+			newPos := int(correctWeight * 0.5)
+			if newPos > p.Progress {
+				p.Progress = newPos
+			}
+		} else {
+			newPos := 20 + int(correctWeight*0.5)
+			if newPos > p.Progress {
+				p.Progress = newPos
+			}
+		}
+		if p.Progress < 0 {
+			p.Progress = 0
+		}
+		return
+	}
+
 	p.Progress = prog.Position
 	p.WPM = prog.WPM
 	p.Accuracy = prog.Accuracy
@@ -381,8 +450,9 @@ func (r *Room) UpdateProgress(userID int, prog *GameProgressPayload) {
 		p.FinishedAt = time.Now()
 	}
 
-	// Check if all finished (for non-timed race modes)
-	if r.Settings.Mode == ModeRace || r.Settings.Mode == ModeAccuracy || r.Settings.Mode == ModeChase {
+	// Mode-specific end conditions
+	switch mode {
+	case ModeRace, ModeAccuracy:
 		allFinished := true
 		for _, ps := range r.Players {
 			if !ps.Finished && !ps.Eliminated {
@@ -393,6 +463,8 @@ func (r *Room) UpdateProgress(userID int, prog *GameProgressPayload) {
 		if allFinished {
 			go r.EndGame()
 		}
+	case ModeMarathon:
+		// Marathon never ends via finish; manual or 24h timeout
 	}
 }
 
@@ -448,14 +520,20 @@ func (r *Room) EndGame() {
 	}
 	r.mu.Unlock()
 
-	results := r.collectResults()
-	r.Broadcast(MsgGameResult, GameResultPayload{Results: results})
+	results, teamScores, chaseResult := r.collectResults()
+	payload := GameResultPayload{
+		Results:    results,
+		TeamScores: teamScores,
+		ChaseResult: chaseResult,
+	}
+	r.Broadcast(MsgGameResult, payload)
 }
 
-func (r *Room) collectResults() []PlayerResult {
+func (r *Room) collectResults() ([]PlayerResult, []TeamScore, *ChaseResult) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	mode := r.Settings.Mode
 	results := make([]PlayerResult, 0, len(r.PlayerIdx))
 	for _, id := range r.PlayerIdx {
 		p := r.Players[id]
@@ -477,11 +555,46 @@ func (r *Room) collectResults() []PlayerResult {
 		})
 	}
 
-	// Sort by WPM desc
-	for i := 0; i < len(results); i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].WPM > results[i].WPM {
-				results[i], results[j] = results[j], results[i]
+	// Mode-specific sorting
+	switch mode {
+	case ModeAccuracy:
+		// Sort by accuracy desc, then WPM desc
+		for i := 0; i < len(results); i++ {
+			for j := i + 1; j < len(results); j++ {
+				if results[j].Accuracy > results[i].Accuracy ||
+					(results[j].Accuracy == results[i].Accuracy && results[j].WPM > results[i].WPM) {
+					results[i], results[j] = results[j], results[i]
+				}
+			}
+		}
+	case ModeElimination:
+		// Last remaining wins; eliminated sorted by elimination order
+		aliveFirst := make([]PlayerResult, 0)
+		eliminated := make([]PlayerResult, 0)
+		for _, r := range results {
+			if r.Eliminated {
+				eliminated = append(eliminated, r)
+			} else {
+				aliveFirst = append(aliveFirst, r)
+			}
+		}
+		results = append(aliveFirst, eliminated...)
+	case ModeChase:
+		// Rank by map position descending (who got furthest)
+		for i := 0; i < len(results); i++ {
+			for j := i + 1; j < len(results); j++ {
+				if results[j].Progress > results[i].Progress {
+					results[i], results[j] = results[j], results[i]
+				}
+			}
+		}
+	default:
+		// Sort by WPM desc (Race, Time Battle, Team Battle, Marathon)
+		for i := 0; i < len(results); i++ {
+			for j := i + 1; j < len(results); j++ {
+				if results[j].WPM > results[i].WPM {
+					results[i], results[j] = results[j], results[i]
+				}
 			}
 		}
 	}
@@ -490,7 +603,100 @@ func (r *Room) collectResults() []PlayerResult {
 		results[i].Position = i + 1
 	}
 
-	return results
+	// Team scores for team battle
+	var teamScores []TeamScore
+	if mode == ModeTeamBattle {
+		teamMap := make(map[string]struct {
+			totalWPM  float64
+			totalAcc  float64
+			count     int
+		})
+		for _, r := range results {
+			if r.Team == "" { continue }
+			entry := teamMap[r.Team]
+			entry.totalWPM += r.WPM
+			entry.totalAcc += r.Accuracy
+			entry.count++
+			teamMap[r.Team] = entry
+		}
+		for team, data := range teamMap {
+			if data.count == 0 { continue }
+			teamScores = append(teamScores, TeamScore{
+				Team:     team,
+				AvgWPM:   math.Round(data.totalWPM/float64(data.count)*100) / 100,
+				AvgAcc:   math.Round(data.totalAcc/float64(data.count)*100) / 100,
+				TotalWPM: math.Round(data.totalWPM*100) / 100,
+			})
+		}
+		// Sort teams by avg WPM
+		for i := 0; i < len(teamScores); i++ {
+			for j := i + 1; j < len(teamScores); j++ {
+				if teamScores[j].AvgWPM > teamScores[i].AvgWPM {
+					teamScores[i], teamScores[j] = teamScores[j], teamScores[i]
+				}
+			}
+		}
+	}
+
+	// Chase result
+	var chaseResult *ChaseResult
+	if mode == ModeChase {
+		var copPlayer, robberPlayer *PlayerState
+		var copID, robberID int
+		for _, id := range r.PlayerIdx {
+			p := r.Players[id]
+			if p.Role == "cop" {
+				copPlayer = p
+				copID = id
+			} else {
+				robberPlayer = p
+				robberID = id
+			}
+		}
+		if copPlayer != nil && robberPlayer != nil {
+			if copPlayer.Progress >= robberPlayer.Progress {
+				chaseResult = &ChaseResult{
+					WinnerRole: "cop",
+					WinnerID:   copID,
+					Reason:     "caught",
+				}
+			} else if robberPlayer.Progress >= r.chaseMapLen {
+				chaseResult = &ChaseResult{
+					WinnerRole: "robber",
+					WinnerID:   robberID,
+					Reason:     "escaped",
+				}
+			} else {
+				chaseResult = &ChaseResult{
+					WinnerRole: "robber",
+					WinnerID:   robberID,
+					Reason:     "timeout",
+				}
+			}
+		}
+	}
+
+	return results, teamScores, chaseResult
+}
+
+func (r *Room) doChaseTick() {
+	cop := r.Players[r.chaseCopID]
+	robber := r.Players[r.chaseRobberID]
+	if cop == nil || robber == nil {
+		return
+	}
+
+	// Check if cop caught robber
+	if cop.Progress >= robber.Progress {
+		go r.EndGame()
+		return
+	}
+
+	// Check if robber reached the end
+	if robber.Progress >= r.chaseMapLen {
+		go r.EndGame()
+		return
+	}
 }
 
 func (r *Room) Rematch(userID int) {
@@ -516,9 +722,21 @@ func (r *Room) Rematch(userID int) {
 }
 
 func generateGameText(settings RoomSettings) string {
-	// For now, use a placeholder text
-	// In production, this would pull from the entries/words database
-	return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. The five boxing wizards jump quickly. Sphinx of black quartz, judge my vow."
+	switch settings.Mode {
+	case ModeAccuracy:
+		return "The quick brown fox jumps over the lazy dog."
+	case ModeChase:
+		return "the quick brown fox jumps over the lazy dog pack my box with five dozen liquor jugs how vexingly quick daft zebras jump the five boxing wizards jump quickly sphinx of black quartz judge my vow"
+	case ModeMarathon:
+		return "the quick brown fox jumps over the lazy dog"
+	case ModeTimeBattle:
+		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. The five boxing wizards jump quickly. Sphinx of black quartz, judge my vow." +
+			" A quick movement of the enemy will jeopardize six gunboats. All questions asked by five watched experts amaze the judge."
+	case ModeElimination:
+		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump."
+	default:
+		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. The five boxing wizards jump quickly. Sphinx of black quartz, judge my vow."
+	}
 }
 
 func init() {

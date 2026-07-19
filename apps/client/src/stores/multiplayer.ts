@@ -7,6 +7,9 @@ import type {
   PlayerInfo,
   GameSyncPayload,
   PlayerResult,
+  TeamScore,
+  ChaseResult,
+  ChaseMapState,
   WSMessage,
 } from "../types/multiplayer";
 
@@ -19,6 +22,8 @@ export interface MultiplayerState {
   countdown: number;
   syncData: GameSyncPayload | null;
   results: PlayerResult[];
+  teamScores: TeamScore[];
+  chaseResult: ChaseResult | null;
 }
 
 const defaultState: MultiplayerState = {
@@ -30,6 +35,8 @@ const defaultState: MultiplayerState = {
   countdown: 0,
   syncData: null,
   results: [],
+  teamScores: [],
+  chaseResult: null,
 };
 
 export function useMultiplayer() {
@@ -83,7 +90,12 @@ export function useMultiplayer() {
     });
 
     addHandler("game:result", (msg) => {
-      setState((s) => ({ ...s, results: msg.payload.results || [] }));
+      setState((s) => ({
+        ...s,
+        results: msg.payload.results || [],
+        teamScores: msg.payload.teamScores || [],
+        chaseResult: msg.payload.chaseResult || null,
+      }));
     });
 
     addHandler("error", (msg) => {
@@ -143,7 +155,9 @@ export function useMultiplayer() {
 
   const connect = useCallback((token?: string) => {
     wsClient.connect(token);
-    setState((s) => ({ ...s, connected: true }));
+    wsClient.on("connect", () => {
+      setState((s) => ({ ...s, connected: true }));
+    });
   }, []);
 
   const disconnect = useCallback(() => {

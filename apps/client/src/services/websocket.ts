@@ -26,6 +26,7 @@ class WebSocketClient {
 
     this.ws.onopen = () => {
       this.connected = true;
+      this.emit("connect", {});
     };
 
     this.ws.onmessage = (event) => {
@@ -72,6 +73,13 @@ class WebSocketClient {
   send(type: string, payload?: any) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }));
+    }
+  }
+
+  private emit(type: string, payload?: any) {
+    const typeHandlers = this.handlers.get(type);
+    if (typeHandlers) {
+      typeHandlers.forEach((h) => h({ type, payload }));
     }
   }
 

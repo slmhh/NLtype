@@ -1,17 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Modal, Button, Statistic } from "@arco-design/web-react";
+import { Modal, Button } from "@arco-design/web-react";
 import { useMultiplayer } from "../stores/multiplayer";
 import { useI18n } from "../context/I18nContext";
 import { TypingDisplay } from "../components/TypingDisplay";
-import type { PlayerInfo, PlayerResult } from "../types/multiplayer";
+import type { PlayerInfo, RoomInfo, GameMode } from "../types/multiplayer";
+
+const MODE_LABELS: Record<string, string> = {
+  race: "Race",
+  time_battle: "Time Battle",
+  accuracy: "Accuracy",
+  elimination: "Elimination",
+  team_battle: "Team Battle",
+  marathon: "Marathon",
+  chase: "Cop & Robber",
+};
+
+function getMode(mpState: any, roomData: any): GameMode {
+  return mpState.syncData?.mode || roomData?.mode || "race";
+}
 
 export default function MultiplayerGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
   const { state: mpState, sendProgress, leaveRoom, requestRematch } = useMultiplayer();
-  const roomData = (location.state as any)?.room;
+  const roomData: RoomInfo | null = (location.state as any)?.room || mpState.currentRoom;
+  const mode = getMode(mpState, roomData);
 
   const text = mpState.gameText || "";
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -25,6 +40,7 @@ export default function MultiplayerGamePage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const finishedRef = useRef(false);
+  const elapsedRef = useRef(0);
 
   interface CharInfo {
     char: string;
@@ -75,6 +91,7 @@ export default function MultiplayerGamePage() {
     const now = Date.now();
     if (startTime === null) setStartTime(now);
     const elapsed = startTime === null ? 0 : now - startTime;
+    elapsedRef.current = elapsed;
 
     setChars((prev) => {
       if (finished) return prev;
@@ -103,27 +120,26 @@ export default function MultiplayerGamePage() {
     setWpm(newWpm);
     setAccuracy(newAcc);
 
-    const isFinished = newIdx >= text.length;
+    const shouldFinish = mode === "marathon" ? false : newIdx >= text.length;
+    const isFinished = shouldFinish;
     if (isFinished) {
       finishedRef.current = true;
       setFinished(true);
     }
 
-    // Send progress via WS (throttled)
     sendProgress({
       position: newIdx,
       wpm: newWpm,
       accuracy: newAcc,
       finished: isFinished,
     });
-  }, [currentIndex, correctCount, incorrectCount, text, startTime, updateWpm, sendProgress, finished]);
+  }, [currentIndex, correctCount, incorrectCount, text, startTime, updateWpm, sendProgress, finished, mode]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Focus input on mount and when clicking
   useEffect(() => {
     const handler = () => inputRef.current?.focus();
     window.addEventListener("click", handler);
@@ -132,13 +148,15 @@ export default function MultiplayerGamePage() {
 
   const progress = text.length > 0 ? Math.min(100, Math.round((currentIndex / text.length) * 100)) : 0;
 
-  // Sort players by WPM for ranking
   const rankedPlayers = useMemo(() => {
     if (!mpState.syncData?.players) return [];
-    return [...mpState.syncData.players].sort((a, b) => (b.wpm || 0) - (a.wpm || 0));
-  }, [mpState.syncData]);
-
-  const myId = roomData?.players?.find((p: PlayerInfo) => true)?.userId;
+    // Server already sorts, but client-side sort for responsiveness
+    const list = [...mpState.syncData.players];
+    if (mode === "accuracy") {
+      list.sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0) || (b.wpm || 0) - (a.wpm || 0));
+    } else list.sort((a, b) => (b.wpm || 0) - (a.wpm || 0));
+    return list;
+  }, [mpState.syncData, mode]);
 
   const handleBack = useCallback(() => {
     leaveRoom();
@@ -159,28 +177,44 @@ export default function MultiplayerGamePage() {
     setChars([]);
   }, [requestRematch]);
 
+  const timeLeft = mpState.syncData?.timeLeft;
+
   return (
     <div className="flex flex-col items-center pt-4 px-4 pb-16 select-none" style={{ minHeight: "100vh" }}>
       <textarea ref={inputRef} className="absolute opacity-0 w-0 h-0" autoFocus />
 
       <div className="w-full max-w-[900px]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <button onClick={handleBack} className="text-xs text-[var(--text-tertiary)] tracking-[0.15em] hover:text-[var(--text-secondary)] transition-colors">
             ← {t("game.back")}
           </button>
-          {mpState.syncData && mpState.syncData.timeLeft !== undefined && mpState.syncData.timeLeft > 0 && (
-            <span className={`text-lg font-bold font-mono ${mpState.syncData.timeLeft <= 10 ? "text-[var(--accent-red)]" : "text-[var(--text-primary)]"}`}>
-              {Math.floor(mpState.syncData.timeLeft / 60)}:{String(mpState.syncData.timeLeft % 60).padStart(2, "0")}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-mono tracking-wider">
+              {MODE_LABELS[mode] || mode}
             </span>
-          )}
+            {mode === "elimination" && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-mono">ELIM 30s</span>
+            )}
+            {timeLeft !== undefined && timeLeft > 0 && mode !== "marathon" && (
+              <span className={`text-lg font-bold font-mono ${timeLeft <= 10 ? "text-[var(--accent-red)]" : "text-[var(--text-primary)]"}`}>
+                {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+              </span>
+            )}
+          </div>
           <span className="text-xs text-[var(--text-tertiary)] font-mono">{roomData?.code || ""}</span>
         </div>
 
         <div className="flex gap-6">
-          {/* Text display area */}
-          <div className="flex-1">
-            <div className="bg-card rounded-2xl shadow-card p-6 mb-4">
+          {/* Left: Text + Stats */}
+          <div className="flex-1 min-w-0">
+            {/* Chase map */}
+            {mode === "chase" && mpState.syncData?.chaseMap && (
+              <ChaseMapView chaseMap={mpState.syncData.chaseMap} />
+            )}
+
+            {/* Text display */}
+            <div className="bg-card rounded-2xl shadow-card p-6 mb-3">
               {chars.length > 0 && (
                 <div className="leading-relaxed" style={{ fontSize: "1.25rem" }}>
                   <TypingDisplay
@@ -199,49 +233,41 @@ export default function MultiplayerGamePage() {
 
             {/* My stats */}
             {text && (
-              <div className="grid grid-cols-4 gap-3">
-                <div className="text-center p-3 rounded-xl bg-card border border-[var(--border)]">
-                  <div className="text-xl font-bold text-[var(--accent)] font-mono">{wpm}</div>
-                  <div className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">WPM</div>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-card border border-[var(--border)]">
-                  <div className="text-xl font-bold text-[var(--accent-green)] font-mono">{accuracy}%</div>
-                  <div className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">{t("game.accuracy")}</div>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-card border border-[var(--border)]">
-                  <div className="text-xl font-bold text-[var(--text-primary)] font-mono">{progress}%</div>
-                  <div className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">{t("game.progress")}</div>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-card border border-[var(--border)]">
-                  <div className="text-xl font-bold text-[var(--text-primary)] font-mono">{correctCount}/{correctCount + incorrectCount}</div>
-                  <div className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">{t("game.accuracy")}</div>
-                </div>
+              <div className="grid grid-cols-4 gap-2">
+                <MiniStat label="WPM" value={String(wpm)} accent />
+                <MiniStat label={t("game.accuracy")} value={`${accuracy}%`} accentGreen />
+                <MiniStat label={t("game.progress")} value={`${progress}%`} />
+                <MiniStat label="Chars" value={`${correctCount}/${correctCount + incorrectCount}`} />
               </div>
             )}
           </div>
 
-          {/* Player rankings */}
-          <div className="w-64">
+          {/* Right: Rankings */}
+          <div className={`${mode === "chase" ? "w-72" : "w-64"}`}>
             <div className="bg-card rounded-2xl shadow-card p-4">
               <h3 className="text-xs text-[var(--text-tertiary)] tracking-[0.2em] uppercase mb-3 font-mono">
-                {t("multiplayer.rankings")}
+                {mode === "team_battle" ? t("multiplayer.teams") : t("multiplayer.rankings")}
               </h3>
-              <div className="space-y-2">
-                {rankedPlayers.map((p, i) => (
-                  <PlayerRankCard key={p.userId} player={p} rank={i + 1} />
-                ))}
-                {rankedPlayers.length === 0 && (
-                  <div className="text-center py-6 text-xs text-[var(--text-tertiary)] tracking-wider">
-                    {t("multiplayer.waiting")}
-                  </div>
-                )}
-              </div>
+
+              {mode === "team_battle" ? (
+                <>
+                  {renderTeamRankings(rankedPlayers)}
+                  {rankedPlayers.length === 0 && <EmptyRanking />}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  {rankedPlayers.map((p, i) => (
+                    <PlayerRankCard key={p.userId} player={p} rank={i + 1} mode={mode} />
+                  ))}
+                  {rankedPlayers.length === 0 && <EmptyRanking />}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div className="mt-4 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+        <div className="mt-3 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
           <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-200"
             style={{ width: `${progress}%` }} />
         </div>
@@ -256,22 +282,67 @@ export default function MultiplayerGamePage() {
         maskClosable={false}
         escToExit={false}
         alignCenter
-        style={{ maxWidth: 500 }}
+        style={{ maxWidth: 520 }}
         className="!rounded-3xl"
       >
         <div className="text-center pt-4 pb-2">
-          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-2">{t("game.result")}</p>
+          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-1">{MODE_LABELS[mode]}</p>
+          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-4">{t("game.result")}</p>
 
+          {/* Chase result */}
+          {mode === "chase" && mpState.chaseResult && (
+            <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
+              <p className="text-sm font-bold tracking-wider text-yellow-500">
+                {mpState.chaseResult.winnerRole === "cop" ? "👮 Police Wins!" : "🏃 Robber Wins!"}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                {mpState.chaseResult.reason === "caught" ? "Robber was caught!" :
+                 mpState.chaseResult.reason === "escaped" ? "Robber escaped!" :
+                 "Time ran out!"}
+              </p>
+            </div>
+          )}
+
+          {/* Team scores */}
+          {mode === "team_battle" && mpState.teamScores.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {mpState.teamScores.map((ts) => (
+                <div key={ts.team} className={`flex items-center justify-between p-2.5 rounded-xl ${
+                  ts.team === "red" ? "bg-red-500/5 border border-red-500/10" : "bg-blue-500/5 border border-blue-500/10"
+                }`}>
+                  <span className={`text-sm font-bold font-mono ${ts.team === "red" ? "text-red-400" : "text-blue-400"}`}>
+                    {ts.team === "red" ? "🔴 Red" : "🔵 Blue"}
+                  </span>
+                  <span className="text-xs font-mono text-[var(--text-primary)]">
+                    Avg {Math.round(ts.avgWpm)} wpm · {Math.round(ts.avgAcc)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Player results */}
           {mpState.results.map((r, i) => (
             <div key={r.userId}
               className={`flex items-center justify-between p-3 mb-2 rounded-xl ${
                 i === 0 ? "bg-yellow-500/10 border border-yellow-500/20" : "bg-[var(--bg-alt)]"
               }`}>
               <div className="flex items-center gap-3">
-                <span className={`text-lg font-bold font-mono ${i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-[var(--text-tertiary)]"}`}>
-                  #{i + 1}
-                </span>
+                <span className={`text-lg font-bold font-mono ${
+                  i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-[var(--text-tertiary)]"
+                }`}>#{i + 1}</span>
                 <span className="font-mono text-sm text-[var(--text-primary)]">{r.username}</span>
+                {r.eliminated && <span className="text-[10px] text-red-400 font-mono">ELIM</span>}
+                {r.team && (
+                  <span className={`text-[10px] font-mono ${r.team === "red" ? "text-red-400" : "text-blue-400"}`}>
+                    {r.team === "red" ? "🔴" : "🔵"}
+                  </span>
+                )}
+                {r.role && mode === "chase" && (
+                  <span className={`text-[10px] font-mono ${r.role === "cop" ? "text-blue-400" : "text-orange-400"}`}>
+                    {r.role === "cop" ? "👮" : "🏃"}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <span className="text-[var(--accent)]">{Math.round(r.wpm)} wpm</span>
@@ -296,32 +367,139 @@ export default function MultiplayerGamePage() {
   );
 }
 
-function PlayerRankCard({ player, rank }: { player: PlayerInfo; rank: number }) {
-  const progress = player.progress || 0;
-  const maxProgress = 100;
+function ChaseMapView({ chaseMap }: { chaseMap: { copPosition: number; robberPosition: number; distance: number; mapLength: number } }) {
+  const total = chaseMap.mapLength || 100;
+  const copPct = Math.min(100, (chaseMap.copPosition / total) * 100);
+  const robberPct = Math.min(100, (chaseMap.robberPosition / total) * 100);
+  const close = chaseMap.distance <= 5;
+
+  return (
+    <div className={`mb-3 p-3 rounded-xl border transition-all ${
+      close ? "border-red-500/30 bg-red-500/5" : "border-[var(--border)] bg-card"
+    }`}>
+      {close && <p className="text-[10px] text-red-400 font-mono tracking-wider text-center mb-1">⚠ POLICE CLOSE!</p>}
+      {/* Track */}
+      <div className="relative h-16 bg-[var(--bg-alt)] rounded-lg overflow-hidden">
+        {/* Start/Finish labels */}
+        <span className="absolute left-1 bottom-0.5 text-[8px] text-[var(--text-tertiary)]">Start</span>
+        <span className="absolute right-1 bottom-0.5 text-[8px] text-[var(--text-tertiary)]">Finish</span>
+
+        {/* Cop */}
+        <div className="absolute top-1 transition-all duration-500" style={{ left: `${copPct}%` }}>
+          <div className="flex flex-col items-center">
+            <span className="text-sm">👮</span>
+            <span className="text-[8px] font-mono text-blue-400">{chaseMap.copPosition}</span>
+          </div>
+        </div>
+
+        {/* Robber */}
+        <div className="absolute bottom-1 transition-all duration-500" style={{ left: `${robberPct}%` }}>
+          <div className="flex flex-col items-center">
+            <span className="text-sm">🏃</span>
+            <span className="text-[8px] font-mono text-orange-400">{chaseMap.robberPosition}</span>
+          </div>
+        </div>
+
+        {/* Distance */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <span className="text-[10px] font-mono text-[var(--text-tertiary)]">
+            {chaseMap.distance > 0 ? `${chaseMap.distance} steps` : "CAUGHT!"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerRankCard({ player, rank, mode }: { player: PlayerInfo; rank: number; mode: string }) {
+  const progress = mode === "chase" ? (player.progress || 0) / 1 : (player.progress || 0);
+  const maxP = mode === "chase" ? 100 : 100;
+  const pct = Math.min(100, (progress / Math.max(1, maxP)) * 100);
 
   return (
     <div className={`p-2.5 rounded-xl border transition-all ${
       player.eliminated ? "opacity-40 border-red-500/20 bg-red-500/5" : "border-[var(--border)] bg-[var(--bg-alt)]"
     }`}>
       <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold font-mono ${
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-xs font-bold font-mono shrink-0 ${
             rank === 1 ? "text-yellow-500" : rank === 2 ? "text-gray-400" : rank === 3 ? "text-orange-400" : "text-[var(--text-tertiary)]"
           }`}>#{rank}</span>
-          <span className="text-xs text-[var(--text-primary)] font-mono truncate max-w-[80px]">{player.username}</span>
-          {player.eliminated && <span className="text-[10px] text-red-400">ELIM</span>}
+          <span className="text-xs text-[var(--text-primary)] font-mono truncate max-w-[70px]">{player.username}</span>
+          {player.team && (
+            <span className={`text-[9px] ${player.team === "red" ? "text-red-400" : "text-blue-400"}`}>
+              {player.team === "red" ? "🔴" : "🔵"}
+            </span>
+          )}
+          {player.role && mode === "chase" && (
+            <span className="text-[10px]">{player.role === "cop" ? "👮" : "🏃"}</span>
+          )}
+          {player.eliminated && <span className="text-[9px] text-red-400 font-mono">ELIM</span>}
         </div>
-        <span className="text-xs font-mono text-[var(--accent)]">{Math.round(player.wpm)}</span>
+        <span className="text-xs font-mono text-[var(--accent)] shrink-0 ml-1">{Math.round(player.wpm)}</span>
       </div>
-      <div className="h-1 bg-[var(--border)] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${
             player.eliminated ? "bg-red-400" : rank === 1 ? "bg-yellow-500" : "bg-[var(--accent)]"
           }`}
-          style={{ width: `${Math.min(100, (progress / Math.max(1, 100)) * 100)}%` }}
+          style={{ width: `${pct}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+function renderTeamRankings(players: PlayerInfo[]) {
+  const red = players.filter((p) => p.team === "red");
+  const blue = players.filter((p) => p.team === "blue");
+  const teams = [
+    { name: "Red", color: "text-red-400", bg: "bg-red-500/5", border: "border-red-500/10", members: red },
+    { name: "Blue", color: "text-blue-400", bg: "bg-blue-500/5", border: "border-blue-500/10", members: blue },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {teams.map((team) => {
+        const avgWpm = team.members.length > 0
+          ? Math.round(team.members.reduce((s, p) => s + p.wpm, 0) / team.members.length)
+          : 0;
+        return (
+          <div key={team.name} className={`p-2.5 rounded-xl border ${team.bg} ${team.border}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-xs font-bold font-mono ${team.color}`}>
+                {team.name === "Red" ? "🔴" : "🔵"} {team.name}
+              </span>
+              <span className="text-xs font-mono text-[var(--text-primary)]">{avgWpm} avg</span>
+            </div>
+            {team.members.map((p) => (
+              <div key={p.userId} className="flex items-center justify-between py-1">
+                <span className="text-xs font-mono text-[var(--text-primary)]">{p.username}</span>
+                <span className="text-xs font-mono text-[var(--accent)]">{Math.round(p.wpm)}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function EmptyRanking() {
+  return (
+    <div className="text-center py-6 text-xs text-[var(--text-tertiary)] tracking-wider">
+      Waiting for game...
+    </div>
+  );
+}
+
+function MiniStat({ label, value, accent, accentGreen }: { label: string; value: string; accent?: boolean; accentGreen?: boolean }) {
+  return (
+    <div className="text-center p-3 rounded-xl bg-card border border-[var(--border)]">
+      <div className={`text-xl font-bold font-mono ${
+        accent ? "text-[var(--accent)]" : accentGreen ? "text-[var(--accent-green)]" : "text-[var(--text-primary)]"
+      }`}>{value}</div>
+      <div className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">{label}</div>
     </div>
   );
 }

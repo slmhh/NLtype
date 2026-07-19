@@ -299,6 +299,10 @@ export const dict: Record<UILang, Record<string, string>> = {
     "stats.avgLatency": "平均延迟",
     "stats.maxLatency": "最大延迟",
     "stats.events": "按键事件",
+    "stats.noErrors": "无错误",
+    "stats.colExpected": "预期",
+    "stats.colTyped": "实际",
+    "stats.colCount": "次数",
 
     // Daily challenge
     "daily.title": "每日挑战",
@@ -638,6 +642,10 @@ export const dict: Record<UILang, Record<string, string>> = {
     "stats.avgLatency": "Avg Latency",
     "stats.maxLatency": "Max Latency",
     "stats.events": "Key Events",
+    "stats.noErrors": "No errors",
+    "stats.colExpected": "Expected",
+    "stats.colTyped": "Typed",
+    "stats.colCount": "Count",
 
     // Daily challenge
     "daily.title": "Daily Challenge",

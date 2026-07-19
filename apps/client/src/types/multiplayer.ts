@@ -53,6 +53,15 @@ export interface GameProgressPayload {
 export interface GameSyncPayload {
   players: PlayerInfo[];
   timeLeft?: number;
+  mode?: GameMode;
+  chaseMap?: ChaseMapState;
+}
+
+export interface ChaseMapState {
+  copPosition: number;
+  robberPosition: number;
+  distance: number;
+  mapLength: number;
 }
 
 export interface PlayerResult {
@@ -69,4 +78,17 @@ export interface PlayerResult {
   cpm: number;
   rawWPM: number;
   duration: number;
+}
+
+export interface TeamScore {
+  team: string;
+  avgWpm: number;
+  avgAcc: number;
+  totalWpm: number;
+}
+
+export interface ChaseResult {
+  winnerRole: string;
+  winnerId: number;
+  reason: string; // "caught" | "escaped" | "timeout"
 }
