@@ -166,12 +166,16 @@ export function useTypingEngine({
         e.preventDefault();
         if (cur.currentIndex <= 0) return;
         const idx = cur.currentIndex - 1;
+        const prevChar = cur.chars[idx];
+        const wasCorrect = prevChar.status === "correct";
         setState((prev) => ({
           ...prev,
           chars: prev.chars.map((c, i) =>
             i === idx ? { char: c.char, typed: "", status: "pending" as const } : c
           ),
           currentIndex: idx,
+          correctCount: prev.correctCount - (wasCorrect ? 1 : 0),
+          incorrectCount: prev.incorrectCount - (wasCorrect ? 0 : 1),
         }));
         return;
       }
@@ -233,8 +237,15 @@ export function useTypingEngine({
     return () => clearInterval(id);
   }, [isActive, state.isFinished, getElapsed, deriveStats]);
 
+  const didFinishRef = useRef(false);
   useEffect(() => {
-    if (state.isFinished && isActive) onFinishRef.current();
+    if (state.isFinished && isActive && !didFinishRef.current) {
+      didFinishRef.current = true;
+      onFinishRef.current();
+    }
+    if (!isActive) {
+      didFinishRef.current = false;
+    }
   }, [state.isFinished, isActive]);
 
 

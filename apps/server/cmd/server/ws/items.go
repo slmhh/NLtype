@@ -167,5 +167,25 @@ func (r *Room) broadcastItemUse(userID, targetID int, item ItemType, effect stri
 	if def, ok := GetItemDef(item); ok && def.Duration > 0 {
 		payload["duration"] = def.Duration
 	}
+	// For hidden effects, don't reveal who used the item
+	if effect == "opponent" || effect == "blocked" {
+		clean := map[string]interface{}{
+			"targetId": targetID,
+			"item":     item,
+			"effect":   effect,
+		}
+		if d, ok := payload["duration"]; ok {
+			clean["duration"] = d
+		}
+		r.broadcastExcept(userID, MsgItemUse, clean)
+		r.Players[userID].Client.Send(MsgItemUse, map[string]interface{}{
+			"userId":   userID,
+			"targetId": targetID,
+			"item":     item,
+			"effect":   "self",
+			"duration": payload["duration"],
+		})
+		return
+	}
 	r.Broadcast(MsgItemUse, payload)
 }

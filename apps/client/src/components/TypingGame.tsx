@@ -87,6 +87,11 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
 
   const savedRef = useRef(false);
   const [lastResultId, setLastResultId] = useState<string | null>(null);
+
+  useEffect(() => {
+    savedRef.current = false;
+  }, [text]);
+
   useEffect(() => {
     if (phase === "finished" && !savedRef.current) {
       savedRef.current = true;

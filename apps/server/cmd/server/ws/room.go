@@ -857,6 +857,18 @@ func (r *Room) Rematch(userID int) {
 		p.Eliminated = false
 		p.FinishedAt = time.Time{}
 	}
+	// Clear chase & elimination state
+	r.chaseCopID = 0
+	r.chaseRobberID = 0
+	r.chaseMapLen = 0
+	r.chaseItems = nil
+	for _, p := range r.Players {
+		p.Items = nil
+		p.SpeedBoostEnd = time.Time{}
+		p.SlowEnd = time.Time{}
+		p.HasShield = false
+		p.StartPos = 0
+	}
 	r.Status = StatusWaiting
 	r.Text = ""
 

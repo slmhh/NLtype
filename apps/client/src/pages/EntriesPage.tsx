@@ -33,7 +33,7 @@ const STATUS_TAG: Record<string, { color: string; key: string }> = {
 
 export default function EntriesPage() {
   const { user, token, hasPermission } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [tab, setTab] = useState<"submit" | "mine" | "review">("submit");
   const [language, setLanguage] = useState("en");
   const [codeLang, setCodeLang] = useState<CodeLang>("typescript");
@@ -185,7 +185,7 @@ export default function EntriesPage() {
                     </Tag>
                     <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}{e.codeLang ? `/${e.codeLang}` : ""}</span>
                     <span className="text-[var(--text-tertiary)] text-xs ml-auto">
-                      {new Date(e.createdAt).toLocaleDateString("zh-CN")}
+                      {new Date(e.createdAt).toLocaleDateString(lang === "en" ? "en-US" : "zh-CN")}
                     </span>
                   </div>
                   <pre className="text-sm text-[var(--text-secondary)] font-mono whitespace-pre-wrap line-clamp-3 mt-1">
@@ -210,7 +210,7 @@ export default function EntriesPage() {
                     <span className="text-[var(--text-primary)] text-xs font-mono font-semibold">{e.username}</span>
                     <span className="text-[var(--text-tertiary)] text-xs font-mono">{e.language}{e.codeLang ? `/${e.codeLang}` : ""}</span>
                     <span className="text-[var(--text-tertiary)] text-xs ml-auto">
-                      {new Date(e.createdAt).toLocaleDateString("zh-CN")}
+                      {new Date(e.createdAt).toLocaleDateString(lang === "en" ? "en-US" : "zh-CN")}
                     </span>
                   </div>
                   <pre className="text-sm text-[var(--text-secondary)] font-mono whitespace-pre-wrap mt-1 mb-3 max-h-32 overflow-y-auto bg-[var(--bg-alt)] rounded-lg p-3">

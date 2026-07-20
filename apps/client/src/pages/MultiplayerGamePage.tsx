@@ -121,7 +121,7 @@ export default function MultiplayerGamePage() {
     setWpm(newWpm);
     setAccuracy(newAcc);
 
-    const shouldFinish = mode === "marathon" ? false : newIdx >= text.length;
+    const shouldFinish = text.length > 0 && (mode === "marathon" ? false : newIdx >= text.length);
     const isFinished = shouldFinish;
     if (isFinished) {
       finishedRef.current = true;
