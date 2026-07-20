@@ -161,7 +161,7 @@ export function useTypingEngine({
 
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      // Backspace éˆ?only move index back, reset the character
+      // Backspace ï¿½?only move index back, reset the character
       if (e.key === "Backspace") {
         e.preventDefault();
         if (cur.currentIndex <= 0) return;
@@ -176,11 +176,13 @@ export function useTypingEngine({
         return;
       }
 
-      // English mode éˆ?any printable char advances. Space is no longer special.
-      if (langRef.current === "en" && e.key.length === 1) {
+      // English mode ï¿½?any printable char advances. Space is no longer special.
+      if ((langRef.current === "en" || langRef.current === "code") && (e.key.length === 1 || e.key === "Enter")) {
         e.preventDefault();
         const expected = cur.chars[cur.currentIndex]?.char;
-        if (expected) advance(e.key, expected);
+        if (expected) {
+          advance(e.key === "Enter" ? "\n" : e.key, expected);
+        }
       }
     };
 
