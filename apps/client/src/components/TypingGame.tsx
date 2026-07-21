@@ -103,7 +103,7 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
         correctCount: typingState.correctCount,
         incorrectCount: typingState.incorrectCount,
         durationSec: Math.round(typingState.elapsedMs / 1000),
-      }, token, typingState.events).then((r) => { setLastResultId(r.id); }).catch(() => {});
+      }, token, typingState.events).then((r) => { setLastResultId(r.id); }).catch((e) => { if (import.meta.env.DEV) console.warn("saveResult failed", e); });
     }
   }, [phase, typingState, gameConfig, token]);
 

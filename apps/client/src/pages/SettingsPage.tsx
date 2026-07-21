@@ -21,7 +21,7 @@ export default function SettingsPage() {
         body: { settings: { theme: newTheme, uiLang } },
         token,
       });
-    } catch { /* ignore */ }
+    } catch (e) { if (import.meta.env.DEV) console.warn("saveSettings failed", e); }
     setSaving(false);
   };
 
@@ -35,7 +35,7 @@ export default function SettingsPage() {
         body: { settings: { theme, uiLang: newLang } },
         token,
       });
-    } catch { /* ignore */ }
+    } catch (e) { if (import.meta.env.DEV) console.warn("saveUILang failed", e); }
     setSaving(false);
   };
 

@@ -13,16 +13,18 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/typerush/server/cmd/server/ws"
 )
 
 var (
-	dataDir string
-	distDir string
-	jwtKey  []byte
-	mu      sync.RWMutex
+	dataDir         string
+	distDir         string
+	jwtKey          []byte
+	mu              sync.RWMutex
+	guestIDCounter  int64
 )
 
 func getEnv(key, fallback string) string {
@@ -334,9 +336,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		username = claims.Username
 		role = claims.Role
 	} else {
-		// Generate a temporary guest ID
-		userID = int(time.Now().UnixNano() % 1000000)
-		username = "Guest-" + strconv.Itoa(userID%10000)
+		userID = int(atomic.AddInt64(&guestIDCounter, 1))
+		username = "Guest-" + strconv.Itoa((userID%9000)+1000)
 	}
 
 	client := ws.NewClient(conn, userID, username, role)

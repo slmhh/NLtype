@@ -54,7 +54,8 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
       setWidth(w);
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
-      ctx.font = '20px "JetBrains Mono", "Fira Code", monospace';
+      const cs = getComputedStyle(el);
+      ctx.font = cs.fontSize + " " + cs.fontFamily;
       setCharWidth(ctx.measureText("a").width);
     };
     measure();

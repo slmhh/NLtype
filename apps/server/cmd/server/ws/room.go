@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -381,14 +382,9 @@ func (r *Room) getSyncPayload() GameSyncPayload {
 		p := r.Players[id]
 		sorted = append(sorted, ranked{id, p.WPM})
 	}
-	// Bubble sort by WPM desc
-	for i := 0; i < len(sorted); i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[j].wpm > sorted[i].wpm {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[j].wpm < sorted[i].wpm
+	})
 	posMap := make(map[int]int)
 	for i, s := range sorted {
 		posMap[s.id] = i + 1
@@ -645,17 +641,13 @@ func (r *Room) collectResults() ([]PlayerResult, []TeamScore, *ChaseResult) {
 	// Mode-specific sorting
 	switch mode {
 	case ModeAccuracy:
-		// Sort by accuracy desc, then WPM desc
-		for i := 0; i < len(results); i++ {
-			for j := i + 1; j < len(results); j++ {
-				if results[j].Accuracy > results[i].Accuracy ||
-					(results[j].Accuracy == results[i].Accuracy && results[j].WPM > results[i].WPM) {
-					results[i], results[j] = results[j], results[i]
-				}
+		sort.Slice(results, func(i, j int) bool {
+			if results[j].Accuracy != results[i].Accuracy {
+				return results[j].Accuracy < results[i].Accuracy
 			}
-		}
+			return results[j].WPM < results[i].WPM
+		})
 	case ModeElimination:
-		// Last remaining wins; eliminated sorted by elimination order
 		aliveFirst := make([]PlayerResult, 0)
 		eliminated := make([]PlayerResult, 0)
 		for _, r := range results {
@@ -667,23 +659,13 @@ func (r *Room) collectResults() ([]PlayerResult, []TeamScore, *ChaseResult) {
 		}
 		results = append(aliveFirst, eliminated...)
 	case ModeChase:
-		// Rank by map position descending (who got furthest)
-		for i := 0; i < len(results); i++ {
-			for j := i + 1; j < len(results); j++ {
-				if results[j].Progress > results[i].Progress {
-					results[i], results[j] = results[j], results[i]
-				}
-			}
-		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[j].Progress < results[i].Progress
+		})
 	default:
-		// Sort by WPM desc (Race, Time Battle, Team Battle, Marathon)
-		for i := 0; i < len(results); i++ {
-			for j := i + 1; j < len(results); j++ {
-				if results[j].WPM > results[i].WPM {
-					results[i], results[j] = results[j], results[i]
-				}
-			}
-		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[j].WPM < results[i].WPM
+		})
 	}
 	// Assign positions
 	for i := range results {
@@ -715,14 +697,9 @@ func (r *Room) collectResults() ([]PlayerResult, []TeamScore, *ChaseResult) {
 				TotalWPM: math.Round(data.totalWPM*100) / 100,
 			})
 		}
-		// Sort teams by avg WPM
-		for i := 0; i < len(teamScores); i++ {
-			for j := i + 1; j < len(teamScores); j++ {
-				if teamScores[j].AvgWPM > teamScores[i].AvgWPM {
-					teamScores[i], teamScores[j] = teamScores[j], teamScores[i]
-				}
-			}
-		}
+		sort.Slice(teamScores, func(i, j int) bool {
+			return teamScores[j].AvgWPM < teamScores[i].AvgWPM
+		})
 	}
 
 	// Chase result
