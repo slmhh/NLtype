@@ -50,6 +50,6 @@ describe("TypingDisplay", () => {
 
   it("handles empty chars array", () => {
     const { container } = render(<TypingDisplay chars={[]} currentIndex={0} isFinished={false} />);
-    expect(container.textContent).toBe("");
+    expect(container.querySelector("div.font-mono")?.textContent).toBe("");
   });
 });

@@ -196,12 +196,17 @@ export default function TypingGame({ text, language, timeLimit, gameConfig, onRe
       </div>
 
       {phase === "playing" && (
-        <div className="w-full max-w-[780px] grid grid-cols-4 gap-0 mt-5">
-          <StatBlock label={t("game.wpm")} value={String(typingState.wpm)} />
-          <StatBlock label={t("game.acc")} value={`${typingState.accuracy}%`} />
-          <StatBlock label={t("game.progress")} value={`${Math.round(progress * 100)}%`} />
-          <StatBlock label={t("game.time")} value={timerLabel} last />
-        </div>
+        <>
+          <div className="w-full max-w-[780px] grid grid-cols-4 gap-0 mt-5">
+            <StatBlock label={t("game.wpm")} value={String(typingState.wpm)} />
+            <StatBlock label={t("game.acc")} value={`${typingState.accuracy}%`} />
+            <StatBlock label={t("game.progress")} value={`${Math.round(progress * 100)}%`} />
+            <StatBlock label={t("game.time")} value={timerLabel} last />
+          </div>
+          <div className="w-full max-w-[780px] mt-4">
+            <WpmChart data={typingState.wpmHistory} height={64} currentWpm={typingState.wpm} />
+          </div>
+        </>
       )}
 
       <Modal

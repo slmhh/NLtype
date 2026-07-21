@@ -41,6 +41,23 @@ function buildLines(chars: CharResult[], currentIndex: number, isFinished: boole
   return { lines, typedLineIdx, typedPos };
 }
 
+const styles = `
+@keyframes char-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes char-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+.char-pop { animation: char-pop 120ms ease-out; }
+.char-shake { animation: char-shake 100ms ease-in-out; }
+`;
+
 export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [charWidth, setCharWidth] = useState(15.6);
@@ -67,6 +84,8 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
   const { lines, typedLineIdx, typedPos } = buildLines(chars, currentIndex, isFinished, width, charWidth);
 
   return (
+    <>
+      <style>{styles}</style>
     <div ref={containerRef} className="font-mono text-xl leading-relaxed select-none">
       {lines.map((line, li) => {
         const isCurrentLine = li === typedLineIdx && !isFinished;
@@ -102,7 +121,7 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
                 const c = line.chars[i];
                 const match = c.typed === c.char;
                 return (
-                  <span key={i} className={`transition-colors duration-75 ${
+                  <span key={i} className={`${match ? "char-pop" : "char-shake"} transition-colors duration-75 ${
                     match ? "text-[var(--accent-green)]" : "text-[var(--char-incorrect)] bg-[var(--char-incorrect)]/10 underline decoration-wavy"
                   }`}>
                     {c.typed === " " ? "\u00B7" : c.typed}
@@ -117,5 +136,5 @@ export function TypingDisplay({ chars, currentIndex, isFinished }: TypingDisplay
         );
       })}
     </div>
-  );
+    </>);
 }
