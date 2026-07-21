@@ -26,12 +26,9 @@ jobs:
   client:
     name: Frontend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/client
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v2
         with:
           version: 9
       - uses: actions/setup-node@v4
@@ -39,8 +36,11 @@ jobs:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - run: corepack enable && pnpm install
+      - run: pnpm install
         working-directory: .
       - run: npx tsc --noEmit
+        working-directory: apps/client
       - run: npx vitest run
+        working-directory: apps/client
       - run: npx vite build
+        working-directory: apps/client
