@@ -10,6 +10,7 @@ class WebSocketClient {
   private connected = false;
   private reconnectAttempts = 0;
   private pendingMessages: string[] = [];
+  private gen = 0; // guards against stale close events
   userId: number | null = null;
 
   connect(token?: string) {
@@ -33,6 +34,7 @@ class WebSocketClient {
     }
 
     this.ws = new WebSocket(this.url);
+    const gen = ++this.gen;
 
     this.ws.onopen = () => {
       this.connected = true;
@@ -64,8 +66,8 @@ class WebSocketClient {
     };
 
     this.ws.onclose = () => {
+      if (this.gen !== gen) return; // stale close from old connection
       this.connected = false;
-      // Auto-reconnect with exponential backoff (1s, 2s, 4s, 8s, ... max 30s)
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
       this.reconnectAttempts++;
       this.reconnectTimer = setTimeout(() => this.doConnect(), delay);

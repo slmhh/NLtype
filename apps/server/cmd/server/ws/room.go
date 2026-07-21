@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -875,22 +876,61 @@ func (r *Room) Rematch(userID int) {
 	r.Broadcast(MsgRoomUpdate, r.GetRoomInfo())
 }
 
+var builtinWords = []string{
+	"the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
+	"pack", "my", "box", "with", "five", "dozen", "liquor", "jugs",
+	"how", "vexingly", "daft", "zebras", "jump", "boxing", "wizards",
+	"sphinx", "black", "quartz", "judge", "vow", "river", "bank",
+	"testing", "purpose", "word", "speed", "typing", "practice",
+	"keyboard", "letter", "character", "sentence", "text", "game",
+	"score", "high", "level", "time", "minute", "second", "fast",
+	"slow", "accuracy", "cryptic", "gazebo", "jovial", "mystify",
+	"pickled", "sprite", "trombone", "unicorn", "vortex", "waltz",
+	"blitz", "dwarves", "fjord", "gypsy", "haiku", "jazz", "kayak",
+	"luxury", "nymph", "photo", "sphinx", "swivel", "topaz", "zephyr",
+}
+
+var builtinModeWordCount = map[GameMode]int{
+	ModeAccuracy: 15,
+	ModeChase:    60,
+	ModeMarathon: 10,
+	ModeTimeBattle: 50,
+	ModeElimination: 35,
+}
+
 func generateGameText(settings RoomSettings) string {
-	switch settings.Mode {
-	case ModeAccuracy:
-		return "The quick brown fox jumps over the lazy dog."
-	case ModeChase:
-		return "the quick brown fox jumps over the lazy dog pack my box with five dozen liquor jugs how vexingly quick daft zebras jump the five boxing wizards jump quickly sphinx of black quartz judge my vow"
-	case ModeMarathon:
-		return "the quick brown fox jumps over the lazy dog"
-	case ModeTimeBattle:
-		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. The five boxing wizards jump quickly. Sphinx of black quartz, judge my vow." +
-			" A quick movement of the enemy will jeopardize six gunboats. All questions asked by five watched experts amaze the judge."
-	case ModeElimination:
-		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump."
-	default:
-		return "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. The five boxing wizards jump quickly. Sphinx of black quartz, judge my vow."
+	n, ok := builtinModeWordCount[settings.Mode]
+	if !ok {
+		n = 40
 	}
+	// Seed with current time to vary text each game
+	seed := time.Now().UnixNano()
+	rng := newRand(seed)
+	words := make([]string, n)
+	for i := range words {
+		words[i] = builtinWords[rng.Intn(len(builtinWords))]
+	}
+	s := strings.Join(words, " ")
+	if settings.Mode == ModeAccuracy {
+		// Shorter sentence-like structure for accuracy mode
+		s = strings.ToUpper(s[:1]) + s[1:] + "."
+	}
+	return s
+}
+
+// newRand is a local reference so we can mock it in tests.
+var newRand = func(seed int64) interface {
+	Intn(n int) int
+} {
+	return &simpleRng{state: seed}
+}
+
+// simpleRng is a minimal LCG for deterministic reproducibility.
+type simpleRng struct{ state int64 }
+
+func (r *simpleRng) Intn(n int) int {
+	r.state = (r.state*6364136223846793005 + 1442695040888963407) & 0x7FFFFFFFFFFFFFFF
+	return int(r.state % int64(n))
 }
 
 

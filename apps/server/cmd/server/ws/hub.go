@@ -37,14 +37,20 @@ func (h *Hub) handleClient(c *Client) {
 		c.conn.Close()
 	}()
 
-	// Set up ping/pong
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 
-	// Read messages in a loop
+	// Periodic ping to keep connection alive
+	pingTicker := time.NewTicker(pingPeriod)
+	defer pingTicker.Stop()
+	go func() {
+		for range pingTicker.C {
+			c.conn.WritePing()
+		}
+	}()
+
 	for {
 		data, err := c.conn.ReadMessage()
 		if err != nil {
-			// Client disconnected
 			if c.RoomID != "" {
 				h.handleLeave(c)
 			}

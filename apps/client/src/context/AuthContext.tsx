@@ -51,7 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       api<{ user: User }>("/api/auth/me", { token })
         .then((res) => setUser(res.user))
-        .catch(() => { remove(TOKEN_KEY); setToken(null); })
+        .catch((err) => {
+          if (err?.status === 401) {
+            remove(TOKEN_KEY);
+            setToken(null);
+          }
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

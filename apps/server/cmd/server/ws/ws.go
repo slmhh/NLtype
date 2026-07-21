@@ -204,6 +204,17 @@ func (c *Conn) readFrame() (*message, error) {
 	return &message{data: data, op: op}, nil
 }
 
+func (c *Conn) WritePing() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return nil
+	}
+	frame := []byte{0x89, 0x00} // FIN=1, OpPing, length=0
+	_, err := c.conn.Write(frame)
+	return err
+}
+
 func (c *Conn) writePong(data []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
