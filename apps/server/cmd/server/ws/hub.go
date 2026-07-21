@@ -189,6 +189,7 @@ func (h *Hub) handleLeave(c *Client) {
 	c.RoomID = ""
 
 	if len(room.Players) == 0 {
+		room.stopTickerAndEnd()
 		h.mu.Lock()
 		delete(h.rooms, room.ID)
 		h.mu.Unlock()

@@ -123,6 +123,9 @@ func handleSpeedBoost(room *Room, userID, targetID int, def ItemDef) {
 
 func handleSlowTrap(room *Room, userID, targetID int, def ItemDef) {
 	opp := room.Players[targetID]
+	if opp == nil {
+		return
+	}
 	if opp.HasShield {
 		opp.HasShield = false
 		room.Players[targetID] = opp

@@ -336,6 +336,22 @@ func (r *Room) StartGame() {
 	}
 }
 
+func (r *Room) stopTickerAndEnd() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.Status == StatusResult {
+		return
+	}
+	r.Status = StatusResult
+	if r.ticker != nil {
+		r.ticker.Stop()
+		select {
+		case r.stopTicker <- struct{}{}:
+		default:
+		}
+	}
+}
+
 func (r *Room) tick() {
 	r.mu.RLock()
 	if r.Status != StatusPlaying {
@@ -361,8 +377,10 @@ func (r *Room) tick() {
 	}
 
 	// Chase mode: update positions based on progress
-	if mode == ModeChase {
-		r.doChaseTick()
+	if mode == ModeChase && r.doChaseTick() {
+		r.mu.Unlock()
+		r.stopTickerAndEnd()
+		return
 	}
 }
 
@@ -743,24 +761,23 @@ func (r *Room) collectResults() ([]PlayerResult, []TeamScore, *ChaseResult) {
 	return results, teamScores, chaseResult
 }
 
-func (r *Room) doChaseTick() {
+func (r *Room) doChaseTick() bool {
 	cop := r.Players[r.chaseCopID]
 	robber := r.Players[r.chaseRobberID]
 	if cop == nil || robber == nil {
-		return
+		return false
 	}
 
 	// Check if cop caught robber
 	if cop.Progress >= robber.Progress {
-		go r.EndGame()
-		return
+		return true
 	}
 
 	// Check if robber reached the end
 	if robber.Progress >= r.chaseMapLen {
-		go r.EndGame()
-		return
+		return true
 	}
+	return false
 }
 
 // --- AI Player simulation ---
