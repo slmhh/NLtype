@@ -177,9 +177,13 @@ func hasPermission(role Role, perm string) bool {
 
 func cors(next http.Handler) http.Handler {
 	origin := getEnv("CORS_ORIGIN", "")
+	if origin == "*" {
+		origin = ""
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
 			if r.Method == "OPTIONS" {
@@ -273,7 +277,18 @@ func sanitizeContent(s string) string {
 // ���� Security helpers ����
 
 func realIP(r *http.Request) string {
-	return r.RemoteAddr
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		parts := strings.Split(fwd, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	if real := r.Header.Get("X-Real-IP"); real != "" {
+		return real
+	}
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx >= 0 {
+		ip = ip[:idx]
+	}
+	return ip
 }
 
 func limitBody(r *http.Request) {
@@ -356,16 +371,24 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 var _ = ws.DefaultHub
 
 func spaFileServer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	if r.Method != "GET" && r.Method != "HEAD" {
 		http.NotFound(w, r)
 		return
 	}
-	path := filepath.Join(distDir, r.URL.Path)
-	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, path)
+	// Clean path to prevent traversal
+	cleaned := strings.TrimPrefix(r.URL.Path, "/")
+	cleaned = filepath.Clean(cleaned)
+	if strings.Contains(cleaned, "..") || strings.HasPrefix(cleaned, "/") {
+		http.NotFound(w, r)
 		return
 	}
-	// SPA fallback: serve index.html for client-side routing
+	fullPath := filepath.Join(distDir, cleaned)
+	info, err := os.Stat(fullPath)
+	if err == nil && !info.IsDir() {
+		http.ServeFile(w, r, fullPath)
+		return
+	}
+	// SPA fallback
 	http.ServeFile(w, r, filepath.Join(distDir, "index.html"))
 }
 

@@ -87,6 +87,7 @@ func registerUser(username, email, password string) (UserPublic, string, error) 
 			id, vToken, vExpires, created); err != nil {
 			log.Printf("insert email verification token: %v", err)
 		}
+		log.Printf("Email verification token generated for user %d", id)
 	}
 
 	token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})
@@ -222,7 +223,6 @@ func handleSendVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Email verification token for user %d: %s", claims.ID, token)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -280,8 +280,8 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Invalid email")
 		return
 	}
-	if len(body.Password) < 8 {
-		writeError(w, 400, "Password must be at least 8 characters")
+	if len(body.Password) < 8 || len(body.Password) > 128 {
+		writeError(w, 400, "Password must be 8-128 characters")
 		return
 	}
 

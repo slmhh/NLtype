@@ -67,7 +67,6 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Password reset token for user %d: %s", userID, token)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -91,8 +90,8 @@ func handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Missing fields")
 		return
 	}
-	if len(body.NewPassword) < 8 {
-		writeError(w, 400, "Password must be at least 8 characters")
+	if len(body.NewPassword) < 8 || len(body.NewPassword) > 128 {
+		writeError(w, 400, "Password must be 8-128 characters")
 		return
 	}
 
