@@ -71,24 +71,28 @@ export default function HomePage() {
     navigate("/game", { state: { config: { ...configRef.current, customText: "", codeLang } } });
   }, [category, customText, customTimeLimit, timerLimit, navigate, t, validateTimeLimit]);
 
+  const depsRef = useRef({ category: "", customText: "", customTimeLimit: 0, timerLimit: 0, codeLang: "" });
+  depsRef.current = { category, customText, customTimeLimit, timerLimit, codeLang };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || readyRef.current) return;
-      if (category === "custom") {
-        const sanitized = sanitizeCustomText(customText);
+      const d = depsRef.current;
+      if (d.category === "custom") {
+        const sanitized = sanitizeCustomText(d.customText);
         if (!sanitized) return;
-        const timeErr = validateTimeLimit(customTimeLimit);
+        const timeErr = validateTimeLimit(d.customTimeLimit);
         if (timeErr) return;
         readyRef.current = true;
-        navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: timerLimit } } });
+        navigate("/game", { state: { config: { ...configRef.current, customText: sanitized, language: "en" as Language, timeLimit: d.timerLimit } } });
       } else {
         readyRef.current = true;
-        navigate("/game", { state: { config: { ...configRef.current, customText: "", codeLang } } });
+        navigate("/game", { state: { config: { ...configRef.current, customText: "", codeLang: d.codeLang } } });
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [navigate, category, customText, customTimeLimit, timerLimit, validateTimeLimit]);
+  }, [navigate, validateTimeLimit]);
 
   useEffect(() => {
     if (category !== "custom" && category !== configRef.current.category) {

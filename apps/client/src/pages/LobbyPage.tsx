@@ -6,21 +6,24 @@ import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import type { GameMode } from "../types/multiplayer";
 
-const MODES: { id: GameMode; label: string }[] = [
-  { id: "race", label: "Race" },
-  { id: "time_battle", label: "Time Battle" },
-  { id: "accuracy", label: "Accuracy" },
-  { id: "elimination", label: "Elimination" },
-  { id: "team_battle", label: "Team Battle" },
-  { id: "marathon", label: "Marathon" },
-  { id: "chase", label: "Cop & Robber" },
-];
+function useModeOptions(t: (k: string) => string) {
+  return [
+    { id: "race" as GameMode, label: t("mode.race") },
+    { id: "time_battle" as GameMode, label: t("mode.time_battle") },
+    { id: "accuracy" as GameMode, label: t("mode.accuracy") },
+    { id: "elimination" as GameMode, label: t("mode.elimination") },
+    { id: "team_battle" as GameMode, label: t("mode.team_battle") },
+    { id: "marathon" as GameMode, label: t("mode.marathon") },
+    { id: "chase" as GameMode, label: t("mode.chase") },
+  ];
+}
 
 export default function LobbyPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { token } = useAuth();
   const { state, connect, createRoom, joinRoom, listRooms } = useMultiplayer();
+  const MODES = useModeOptions(t);
   const [joinCode, setJoinCode] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [newMode, setNewMode] = useState<GameMode>("race");

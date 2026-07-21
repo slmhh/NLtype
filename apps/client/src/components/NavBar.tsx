@@ -89,7 +89,7 @@ export default function NavBar() {
           droplist={
             <Menu onClickMenuItem={(key) => setUILang(key as UILang)}>
               {(["zh", "en"] as const).map((l) => (
-                <Menu.Item key={l}>{uiLang === l ? "✓ " : ""}{l === "zh" ? "中文" : "EN"}</Menu.Item>
+                <Menu.Item key={l}>{uiLang === l ? "✓ " : ""}{t(`lang.${l}`)}</Menu.Item>
               ))}
             </Menu>
           }
@@ -97,7 +97,7 @@ export default function NavBar() {
           position="br"
         >
           <button className="text-xs font-mono tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">
-            {uiLang === "zh" ? "中" : "EN"}
+            {uiLang === "zh" ? t("lang.zh") : t("lang.en")}
           </button>
         </Dropdown>
 
@@ -115,7 +115,7 @@ export default function NavBar() {
           <Dropdown droplist={userMenu} trigger="click" position="br">
             <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg hover:bg-[var(--bg-alt)] transition-colors">
               <span className="w-6 h-6 flex items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-mono font-bold">
-                {user.username[0].toUpperCase()}
+                {(user.username?.[0] || "?").toUpperCase()}
               </span>
               <span className="text-sm text-[var(--text-secondary)] font-mono">{user.username}</span>
               {user.role !== "user" && (

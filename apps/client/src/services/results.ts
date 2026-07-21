@@ -19,8 +19,8 @@ function pushLocal(r: GameResult) {
   save(LOCAL_KEY, all);
 }
 
-const MODE_LABEL: Record<string, string> = { time: "计时", words: "单词", quote: "引用", code: "代码", zen: "禅" };
-const LANG_LABEL: Record<string, string> = { en: "EN", zh: "ZH", code: "Code" };
+const MODE_LABEL: Record<string, string> = {};
+const LANG_LABEL: Record<string, string> = {};
 
 function toGameResult(r: any): GameResult {
   return {

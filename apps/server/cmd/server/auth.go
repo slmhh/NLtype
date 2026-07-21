@@ -83,9 +83,10 @@ func registerUser(username, email, password string) (UserPublic, string, error) 
 	// Generate email verification token
 	if vToken, err := generateResetToken(); err == nil {
 		vExpires := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02T15:04:05Z")
-		db.Exec("INSERT INTO email_verification_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
-			id, vToken, vExpires, created)
-		log.Printf("Email verification token for user %d: %s", id, vToken)
+		if _, err := db.Exec("INSERT INTO email_verification_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
+			id, vToken, vExpires, created); err != nil {
+			log.Printf("insert email verification token: %v", err)
+		}
 	}
 
 	token := signToken(Claims{ID: pub.ID, Username: pub.Username, Role: string(pub.Role)})

@@ -72,9 +72,13 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	// Merge with existing settings
 	var raw string
-	db.QueryRow("SELECT settings FROM users WHERE id = ?", claims.ID).Scan(&raw)
+	if err := db.QueryRow("SELECT settings FROM users WHERE id = ?", claims.ID).Scan(&raw); err != nil {
+		raw = "{}"
+	}
 	var existing map[string]any
-	json.Unmarshal([]byte(raw), &existing)
+	if err := json.Unmarshal([]byte(raw), &existing); err != nil {
+		existing = make(map[string]any)
+	}
 	if existing == nil {
 		existing = make(map[string]any)
 	}

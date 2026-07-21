@@ -48,16 +48,6 @@ export default function RoomPage() {
     startGame();
   };
 
-  const modeLabels: Record<string, string> = {
-    race: "Race",
-    time_battle: "Time Battle",
-    accuracy: "Accuracy Challenge",
-    elimination: "Elimination",
-    team_battle: "Team Battle",
-    marathon: "Marathon",
-    chase: "Cop & Robber",
-  };
-
   return (
     <div className="flex flex-col items-center pt-12 px-4 pb-16 select-none">
       <div className="w-full max-w-[600px]">
@@ -71,7 +61,7 @@ export default function RoomPage() {
             <div>
               <h1 className="text-xl font-bold tracking-wider text-[var(--text-primary)]">#{code}</h1>
               <p className="text-xs text-[var(--text-tertiary)] tracking-wider mt-1">
-                {modeLabels[room.mode] || room.mode}
+                {t(`mode.${room.mode}`)}
               </p>
             </div>
             <span className="text-xs text-[var(--text-tertiary)] font-mono">
@@ -86,7 +76,7 @@ export default function RoomPage() {
                 className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-alt)] border border-[var(--border)]">
                 <div className="flex items-center gap-3">
                   <span className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold font-mono">
-                    {p.username[0].toUpperCase()}
+                    {(p.username?.[0] || "?").toUpperCase()}
                   </span>
                   <div>
                     <span className="text-sm text-[var(--text-primary)] font-mono">{p.username}</span>

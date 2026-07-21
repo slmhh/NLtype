@@ -17,7 +17,7 @@ export default function ProfilePage() {
     Promise.all([
       getResults(token).then(setResults),
       getPersonalBests(token).then(setBests),
-    ]).finally(() => setLoading(false));
+    ]).catch(() => {}).finally(() => setLoading(false));
   }, [user, token]);
 
   const stats = useMemo(() => {

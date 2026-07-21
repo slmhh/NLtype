@@ -7,15 +7,7 @@ import { TypingDisplay } from "../components/TypingDisplay";
 import type { PlayerInfo, RoomInfo, GameMode, ItemType } from "../types/multiplayer";
 import { getItemDef, getAllItemDefs } from "../data/items";
 
-const MODE_LABELS: Record<string, string> = {
-  race: "Race",
-  time_battle: "Time Battle",
-  accuracy: "Accuracy",
-  elimination: "Elimination",
-  team_battle: "Team Battle",
-  marathon: "Marathon",
-  chase: "Cop & Robber",
-};
+
 
 function getMode(mpState: any, roomData: any): GameMode {
   return mpState.syncData?.mode || roomData?.mode || "race";
@@ -75,6 +67,7 @@ export default function MultiplayerGamePage() {
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const deps = stateSnapshotRef.current;
     if (finishedRef.current || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.key === "Backspace") {
       e.preventDefault();
@@ -90,13 +83,13 @@ export default function MultiplayerGamePage() {
 
     e.preventDefault();
     const now = Date.now();
-    if (startTime === null) setStartTime(now);
-    const elapsed = startTime === null ? 0 : now - startTime;
+    if (deps.startTime === null) setStartTime(now);
+    const elapsed = deps.startTime === null ? 0 : now - deps.startTime;
     elapsedRef.current = elapsed;
 
     setChars((prev) => {
-      if (finished) return prev;
-      const idx = currentIndex;
+      if (deps.finished) return prev;
+      const idx = deps.currentIndex;
       if (idx >= prev.length) return prev;
       const expected = prev[idx].char;
       const correct = e.key === expected;
@@ -105,10 +98,10 @@ export default function MultiplayerGamePage() {
       );
     });
 
-    const idx = currentIndex;
-    const isCorrect = idx < text.length && e.key === text[idx];
-    const newCorrect = correctCount + (isCorrect ? 1 : 0);
-    const newIncorrect = incorrectCount + (isCorrect ? 0 : 1);
+    const idx = deps.currentIndex;
+    const isCorrect = idx < deps.text.length && e.key === deps.text[idx];
+    const newCorrect = deps.correctCount + (isCorrect ? 1 : 0);
+    const newIncorrect = deps.incorrectCount + (isCorrect ? 0 : 1);
     setCorrectCount(newCorrect);
     setIncorrectCount(newIncorrect);
 
@@ -121,7 +114,7 @@ export default function MultiplayerGamePage() {
     setWpm(newWpm);
     setAccuracy(newAcc);
 
-    const shouldFinish = text.length > 0 && (mode === "marathon" ? false : newIdx >= text.length);
+    const shouldFinish = deps.text.length > 0 && (deps.mode === "marathon" ? false : newIdx >= deps.text.length);
     const isFinished = shouldFinish;
     if (isFinished) {
       finishedRef.current = true;
@@ -134,7 +127,15 @@ export default function MultiplayerGamePage() {
       accuracy: newAcc,
       finished: isFinished,
     });
-  }, [currentIndex, correctCount, incorrectCount, text, startTime, updateWpm, sendProgress, finished, mode]);
+  }, [updateWpm, sendProgress]);
+
+  const stateSnapshotRef = useRef({ currentIndex: 0, correctCount: 0, incorrectCount: 0, startTime: null as number | null, finished: false, text: "", mode: "" });
+  stateSnapshotRef.current = { currentIndex, correctCount, incorrectCount, startTime, finished, text, mode };
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -192,7 +193,7 @@ export default function MultiplayerGamePage() {
           </button>
           <div className="flex items-center gap-3">
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-mono tracking-wider">
-              {MODE_LABELS[mode] || mode}
+              {t(`mode.${mode}`)}
             </span>
             {mode === "elimination" && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-mono">ELIM 30s</span>
@@ -246,10 +247,10 @@ export default function MultiplayerGamePage() {
             {/* My stats */}
             {text && (
               <div className="grid grid-cols-4 gap-2">
-                <MiniStat label="WPM" value={String(wpm)} accent />
+                <MiniStat label={t("multiplayer.wpm")} value={String(wpm)} accent />
                 <MiniStat label={t("game.accuracy")} value={`${accuracy}%`} accentGreen />
                 <MiniStat label={t("game.progress")} value={`${progress}%`} />
-                <MiniStat label="Chars" value={`${correctCount}/${correctCount + incorrectCount}`} />
+                <MiniStat label={t("multiplayer.chars")} value={`${correctCount}/${correctCount + incorrectCount}`} />
               </div>
             )}
           </div>
@@ -298,19 +299,19 @@ export default function MultiplayerGamePage() {
         className="!rounded-3xl"
       >
         <div className="text-center pt-4 pb-2">
-          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-1">{MODE_LABELS[mode]}</p>
+          <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-1">{t(`mode.${mode}`)}</p>
           <p className="text-[var(--text-tertiary)] text-xs tracking-[0.2em] uppercase mb-4">{t("game.result")}</p>
 
           {/* Chase result */}
           {mode === "chase" && mpState.chaseResult && (
             <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
               <p className="text-sm font-bold tracking-wider text-yellow-500">
-                {mpState.chaseResult.winnerRole === "cop" ? "👮 Police Wins!" : "🏃 Robber Wins!"}
+                {mpState.chaseResult.winnerRole === "cop" ? t("multiplayer.chasePoliceWins") : t("multiplayer.chaseRobberWins")}
               </p>
               <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                {mpState.chaseResult.reason === "caught" ? "Robber was caught!" :
-                 mpState.chaseResult.reason === "escaped" ? "Robber escaped!" :
-                 "Time ran out!"}
+                {mpState.chaseResult.reason === "caught" ? t("multiplayer.chaseCaught") :
+                 mpState.chaseResult.reason === "escaped" ? t("multiplayer.chaseEscaped") :
+                 t("multiplayer.chaseTimeUp")}
               </p>
             </div>
           )}

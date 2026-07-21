@@ -71,7 +71,9 @@ func readJSON(path string, v any) error {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("writeJSON: %v", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
@@ -295,13 +297,18 @@ func blacklistToken(token string, expiresAt int64) {
 	hash := tokenHash(token)
 	expires := time.Unix(expiresAt, 0).UTC().Format("2006-01-02T15:04:05Z")
 	now := nowISO()
-	db.Exec("INSERT OR IGNORE INTO token_blacklist (token_hash, expires_at, created_at) VALUES (?, ?, ?)", hash, expires, now)
+	if _, err := db.Exec("INSERT OR IGNORE INTO token_blacklist (token_hash, expires_at, created_at) VALUES (?, ?, ?)", hash, expires, now); err != nil {
+		log.Printf("blacklist token: %v", err)
+	}
 }
 
 func isTokenBlacklisted(token string) bool {
 	hash := tokenHash(token)
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM token_blacklist WHERE token_hash = ?", hash).Scan(&count)
+	if err := db.QueryRow("SELECT COUNT(*) FROM token_blacklist WHERE token_hash = ?", hash).Scan(&count); err != nil {
+		log.Printf("check token blacklist: %v", err)
+		return false
+	}
 	return count > 0
 }
 
@@ -425,7 +432,9 @@ func main() {
 			writeError(w, 403, "Insufficient permissions")
 			return
 		}
-		db.Exec("DELETE FROM results")
+		if _, err := db.Exec("DELETE FROM results"); err != nil {
+			log.Printf("admin delete results: %v", err)
+		}
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})))
 

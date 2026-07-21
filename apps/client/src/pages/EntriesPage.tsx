@@ -19,11 +19,13 @@ interface Entry {
   reviewedBy?: number;
 }
 
-const LANG_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "zh", label: "中文" },
-  { value: "code", label: "Code" },
-];
+function LangOptions({ t }: { t: (k: string) => string }) {
+  return [
+    { value: "en", label: t("lang.en") },
+    { value: "zh", label: t("lang.zh") },
+    { value: "code", label: t("lang.code") },
+  ];
+}
 
 const STATUS_TAG: Record<string, { color: string; key: string }> = {
   pending: { color: "orange", key: "entries.statusPending" },
@@ -130,7 +132,7 @@ export default function EntriesPage() {
           <div className="bg-card rounded-2xl shadow-card p-8">
             <div className="mb-5">
               <label className="text-[var(--text-tertiary)] text-xs tracking-wider block mb-2">{t("entries.language")}</label>
-              <Select value={language} onChange={(v) => { setLanguage(v); }} options={LANG_OPTIONS} className="!w-32" />
+              <Select value={language} onChange={(v) => { setLanguage(v); }} options={LangOptions({ t })} className="!w-32" />
               {language === "code" && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
                   {CODE_LANGUAGES.map((cl) => (

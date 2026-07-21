@@ -45,8 +45,8 @@ export default function SettingsPage() {
   ];
 
   const langOptions = [
-    { value: "zh", label: "中文" },
-    { value: "en", label: "English" },
+    { value: "zh", label: t("lang.zh") },
+    { value: "en", label: t("lang.en") },
   ];
 
   return (

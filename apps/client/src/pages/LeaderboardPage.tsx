@@ -90,7 +90,7 @@ export default function LeaderboardPage() {
                   <span className="text-[var(--text-primary)] font-mono">{e.username || "—"}</span>
                   <span className="text-[var(--text-primary)] font-mono font-semibold text-right tabular-nums">{e.wpm}</span>
                   <span className="text-[var(--text-secondary)] font-mono text-right tabular-nums">{e.accuracy}%</span>
-                  <span className="text-[var(--text-tertiary)] text-xs text-right">{e.modeLabel}</span>
+                  <span className="text-[var(--text-tertiary)] text-xs text-right">{t(`mode.${e.modeLabel}`)}</span>
                 </div>
               ))}
             </div>

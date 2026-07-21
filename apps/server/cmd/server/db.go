@@ -183,7 +183,9 @@ func runMigrations() error {
 	}
 
 	var currentVersion int
-	db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&currentVersion)
+	if err := db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&currentVersion); err != nil {
+		return fmt.Errorf("get current migration version: %w", err)
+	}
 
 	for _, m := range migrations {
 		if m.version <= currentVersion {

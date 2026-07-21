@@ -42,13 +42,14 @@ func (h *Hub) handleClient(c *Client) {
 	// Periodic ping to keep connection alive
 	pingTicker := time.NewTicker(pingPeriod)
 	defer pingTicker.Stop()
-	go func() {
-		for range pingTicker.C {
-			c.conn.WritePing()
-		}
-	}()
 
 	for {
+		select {
+		case <-pingTicker.C:
+			c.conn.WritePing()
+		default:
+		}
+
 		data, err := c.conn.ReadMessage()
 		if err != nil {
 			if c.RoomID != "" {
@@ -140,11 +141,7 @@ func (h *Hub) handleJoinRoom(c *Client, payload interface{}) {
 
 	h.mu.RLock()
 	room, ok := h.rooms[req.Code]
-	h.mu.RUnlock()
-
 	if !ok {
-		// Try by code
-		h.mu.RLock()
 		for _, r := range h.rooms {
 			if r.Code == req.Code {
 				room = r
@@ -152,8 +149,8 @@ func (h *Hub) handleJoinRoom(c *Client, payload interface{}) {
 				break
 			}
 		}
-		h.mu.RUnlock()
 	}
+	h.mu.RUnlock()
 
 	if !ok {
 		sendError(c, "room not found")
@@ -242,7 +239,10 @@ func (h *Hub) handleStartGame(c *Client) {
 		return
 	}
 
-	if c.UserID != room.HostID {
+	room.mu.RLock()
+	isHost := c.UserID == room.HostID
+	room.mu.RUnlock()
+	if !isHost {
 		sendError(c, "only the host can start")
 		return
 	}

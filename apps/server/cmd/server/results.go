@@ -25,13 +25,12 @@ type GameResult struct {
 }
 
 type LeaderboardEntry struct {
-	Rank       int    `json:"rank"`
-	Username   string `json:"username"`
-	WPM        int    `json:"wpm"`
-	Accuracy   int    `json:"accuracy"`
-	ModeLabel  string `json:"modeLabel"`
-	LangLabel  string `json:"langLabel"`
-	Date       string `json:"date"`
+	Rank      int    `json:"rank"`
+	Username  string `json:"username"`
+	WPM       int    `json:"wpm"`
+	Accuracy  int    `json:"accuracy"`
+	ModeLabel string `json:"modeLabel"`
+	Date      string `json:"date"`
 }
 
 func safeDate(s string) string {
@@ -42,30 +41,10 @@ func safeDate(s string) string {
 }
 
 func modeLabel(m string) string {
-	switch m {
-	case "time":
-		return "计时"
-	case "words":
-		return "单词"
-	case "quote":
-		return "引用"
-	case "code":
-		return "代码"
-	case "zen":
-		return "zen"
-	}
 	return m
 }
 
 func langLabel(l string) string {
-	switch l {
-	case "en":
-		return "EN"
-	case "zh":
-		return "ZH"
-	case "code":
-		return "Code"
-	}
 	return l
 }
 
@@ -290,8 +269,7 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 			Username:  username,
 			WPM:       wpm,
 			Accuracy:  accuracy,
-			ModeLabel: modeLabel(mode),
-			LangLabel: langLabel(lang),
+		ModeLabel: mode,
 			Date:      safeDate(createdAt),
 		})
 		rank++
