@@ -19,13 +19,21 @@ func NewClient(conn *Conn, userID int, username, role string) *Client {
 }
 
 func (c *Client) Send(msgType string, payload interface{}) {
+	if c.conn == nil {
+		return
+	}
 	sendMsg(c, msgType, payload)
 }
 
 func (c *Client) SendRaw(data []byte) error {
+	if c.conn == nil {
+		return nil
+	}
 	return c.conn.WriteMessage(data)
 }
 
 func (c *Client) Disconnect() {
-	c.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
+	}
 }

@@ -1,10 +1,11 @@
 package ws
 
 import (
-	"crypto/rand"
+	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -12,14 +13,14 @@ import (
 
 func generateID() string {
 	b := make([]byte, 4)
-	rand.Read(b)
+	cryptorand.Read(b)
 	return hex.EncodeToString(b)
 }
 
 func generateCode() string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	b := make([]byte, 6)
-	rand.Read(b)
+	cryptorand.Read(b)
 	for i := range b {
 		b[i] = chars[int(b[i])%len(chars)]
 	}
@@ -65,16 +66,22 @@ type Room struct {
 	Duration    int
 	ticker      *time.Ticker
 	stopTicker  chan struct{}
-	elimTick    int // elimination tick counter
+	elimTick    int
 	chaseCopID    int
 	chaseRobberID int
 	chaseMapLen   int
 	chaseItems    []ItemPos
+	aiNextID    int
+	aiDone      chan struct{}
 }
 
 func NewRoom(settings RoomSettings, hostUser *UserInfo) *Room {
 	id := generateID()
 	code := generateCode()
+	aiNext := -2
+	if settings.AIEnabled && settings.AICount > 0 {
+		aiNext = -2 - settings.AICount
+	}
 	return &Room{
 		ID:        id,
 		Code:      code,
@@ -85,6 +92,7 @@ func NewRoom(settings RoomSettings, hostUser *UserInfo) *Room {
 		CreatedAt: time.Now(),
 		Players:   make(map[int]*PlayerState),
 		PlayerIdx: make([]int, 0),
+		aiNextID:  aiNext,
 	}
 }
 
@@ -273,6 +281,9 @@ func (r *Room) StartGame() {
 		time.Sleep(1 * time.Second)
 	}
 	r.Broadcast(MsgGameCountdown, map[string]int{"count": 0})
+
+	// Add AI players before starting
+	r.startAIPlayers()
 
 	r.mu.Lock()
 	r.Status = StatusPlaying
@@ -775,6 +786,142 @@ func (r *Room) doChaseTick() {
 	}
 }
 
+// --- AI Player simulation ---
+
+func (r *Room) startAIPlayers() {
+	if !r.Settings.AIEnabled || r.Settings.AICount <= 0 {
+		return
+	}
+
+	r.mu.Lock()
+	r.aiDone = make(chan struct{})
+	aiCount := r.Settings.AICount
+	textLen := len(r.Text)
+	mode := r.Settings.Mode
+	r.mu.Unlock()
+
+	for i := 0; i < aiCount; i++ {
+		aiID := -2 - i
+		aiClient := &Client{
+			conn:     nil,
+			UserID:   aiID,
+			Username: fmt.Sprintf("Bot-%d", i+1),
+			Role:     "ai",
+		}
+
+		r.mu.Lock()
+		// Assign team/role like a real player
+		team := ""
+		role := ""
+		if mode == ModeTeamBattle {
+			team = []string{"red", "blue"}[i%2]
+		}
+		if mode == ModeChase {
+			if r.chaseCopID == 0 {
+				role = "cop"
+				r.chaseCopID = aiID
+			} else {
+				role = "robber"
+				r.chaseRobberID = aiID
+			}
+		}
+		r.Players[aiID] = &PlayerState{
+			Client: aiClient,
+			Ready:  true,
+			Team:   team,
+			Role:   role,
+		}
+		r.PlayerIdx = append(r.PlayerIdx, aiID)
+		r.mu.Unlock()
+
+		// Update lobby so clients see AI players
+		r.Broadcast(MsgRoomUpdate, r.GetRoomInfo())
+
+		// Target WPM scales with AI count: more bots = harder
+		targetWPM := 30 + float64(aiCount)*12
+		if targetWPM > 130 {
+			targetWPM = 130
+		}
+		targetWPM += float64(i) * 5 // later bots are slightly faster
+
+		// Per-character delay based on target WPM
+		charDelay := time.Duration(float64(time.Minute) / (targetWPM * 5))
+
+		go r.runAIPlayer(aiID, textLen, charDelay, targetWPM)
+	}
+}
+
+func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, targetWPM float64) {
+	// Reaction delay: 0.5-2s
+	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
+	reaction := time.Duration(500+rng.IntN(1500)) * time.Millisecond
+	time.Sleep(reaction)
+
+	pos := 0
+	errorRate := 0.08 + rng.Float64()*0.04 // 8-12% error rate
+	delayJitter := 0.7                      // ±30% jitter
+
+	for {
+		r.mu.RLock()
+		if r.Status != StatusPlaying {
+			r.mu.RUnlock()
+			return
+		}
+		r.mu.RUnlock()
+
+		if pos >= textLen {
+			break
+		}
+
+		// Simulate a burst of 1-5 chars
+		burst := 1 + rng.IntN(4)
+		step := 0
+		for j := 0; j < burst && pos < textLen; j++ {
+			pos++
+			step++
+		}
+
+		// Simulate errors: backspace the last char with some probability
+		hadError := false
+		if rng.Float64() < errorRate && pos > 0 && pos < textLen {
+			// "Backspace" - undo one char
+			pos--
+			time.Sleep(time.Duration(100+rng.IntN(300)) * time.Millisecond)
+			hadError = true
+		}
+
+		accuracy := 100.0
+		if hadError {
+			accuracy = 90.0 + rng.Float64()*8.0 // ~92-98% with error
+		}
+
+		elapsed := time.Since(r.StartTime).Milliseconds()
+		wpm := targetWPM * (0.8 + rng.Float64()*0.4) // vary ±20%
+
+		r.UpdateProgress(aiID, &GameProgressPayload{
+			Position: pos,
+			WPM:      wpm,
+			Accuracy: accuracy,
+			Finished: pos >= textLen,
+		})
+
+		if pos >= textLen {
+			return
+		}
+
+		// Delay between bursts with jitter
+		jitter := time.Duration(float64(baseDelay) * delayJitter * float64(step))
+		variance := time.Duration(float64(jitter) * (0.7 + rng.Float64()*0.6))
+		_ = elapsed // used via WPM calc
+		time.Sleep(variance)
+	}
+}
+
+func (r *Room) stopAIPlayers() {
+	// AI goroutines check r.Status, so they exit naturally when game ends.
+	// No explicit stop needed, but signal cleanup.
+}
+
 func (r *Room) UseItem(userID int, item ItemType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -863,6 +1010,24 @@ func (r *Room) Rematch(userID int) {
 	r.chaseRobberID = 0
 	r.chaseMapLen = 0
 	r.chaseItems = nil
+	// Remove AI players
+	aiIDs := make([]int, 0)
+	for _, id := range r.PlayerIdx {
+		if id < 0 {
+			aiIDs = append(aiIDs, id)
+		}
+	}
+	for _, id := range aiIDs {
+		delete(r.Players, id)
+	}
+	newIdx := make([]int, 0, len(r.PlayerIdx))
+	for _, id := range r.PlayerIdx {
+		if id >= 0 {
+			newIdx = append(newIdx, id)
+		}
+	}
+	r.PlayerIdx = newIdx
+	// Reset remaining player state
 	for _, p := range r.Players {
 		p.Items = nil
 		p.SpeedBoostEnd = time.Time{}
@@ -891,10 +1056,10 @@ var builtinWords = []string{
 }
 
 var builtinModeWordCount = map[GameMode]int{
-	ModeAccuracy: 15,
-	ModeChase:    60,
-	ModeMarathon: 10,
-	ModeTimeBattle: 50,
+	ModeAccuracy:    15,
+	ModeChase:       60,
+	ModeMarathon:    10,
+	ModeTimeBattle:  50,
 	ModeElimination: 35,
 }
 
@@ -903,34 +1068,17 @@ func generateGameText(settings RoomSettings) string {
 	if !ok {
 		n = 40
 	}
-	// Seed with current time to vary text each game
-	seed := time.Now().UnixNano()
-	rng := newRand(seed)
 	words := make([]string, n)
 	for i := range words {
-		words[i] = builtinWords[rng.Intn(len(builtinWords))]
+		words[i] = builtinWords[rand.IntN(len(builtinWords))]
 	}
 	s := strings.Join(words, " ")
 	if settings.Mode == ModeAccuracy {
-		// Shorter sentence-like structure for accuracy mode
-		s = strings.ToUpper(s[:1]) + s[1:] + "."
+		if len(s) > 0 {
+			s = strings.ToUpper(s[:1]) + s[1:] + "."
+		}
 	}
 	return s
-}
-
-// newRand is a local reference so we can mock it in tests.
-var newRand = func(seed int64) interface {
-	Intn(n int) int
-} {
-	return &simpleRng{state: seed}
-}
-
-// simpleRng is a minimal LCG for deterministic reproducibility.
-type simpleRng struct{ state int64 }
-
-func (r *simpleRng) Intn(n int) int {
-	r.state = (r.state*6364136223846793005 + 1442695040888963407) & 0x7FFFFFFFFFFFFFFF
-	return int(r.state % int64(n))
 }
 
 
