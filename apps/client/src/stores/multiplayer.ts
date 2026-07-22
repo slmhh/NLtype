@@ -145,7 +145,7 @@ export function useMultiplayer() {
     });
 
     addHandler("error", (msg) => {
-      console.error("WS error:", msg.payload?.message || msg.payload);
+      if (import.meta.env.DEV) console.warn("WS error:", msg.payload?.message || msg.payload);
     });
 
     setState((s) => ({ ...s, connected: true }));

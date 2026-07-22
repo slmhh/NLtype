@@ -9,7 +9,7 @@ import { getItemDef, getAllItemDefs } from "../data/items";
 
 
 
-function getMode(mpState: any, roomData: any): GameMode {
+function getMode(mpState: { syncData: { mode?: GameMode } | null }, roomData: { mode?: GameMode } | null): GameMode {
   return mpState.syncData?.mode || roomData?.mode || "race";
 }
 
@@ -18,7 +18,7 @@ export default function MultiplayerGamePage() {
   const location = useLocation();
   const { t } = useI18n();
   const { state: mpState, sendProgress, leaveRoom, requestRematch, useItem } = useMultiplayer();
-  const roomData: RoomInfo | null = (location.state as any)?.room || mpState.currentRoom;
+  const roomData: RoomInfo | null = (location.state as { room?: RoomInfo } | null)?.room || mpState.currentRoom;
   const mode = getMode(mpState, roomData);
 
   const text = mpState.gameText || "";
@@ -131,11 +131,6 @@ export default function MultiplayerGamePage() {
 
   const stateSnapshotRef = useRef({ currentIndex: 0, correctCount: 0, incorrectCount: 0, startTime: null as number | null, finished: false, text: "", mode: "" });
   stateSnapshotRef.current = { currentIndex, correctCount, incorrectCount, startTime, finished, text, mode };
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);

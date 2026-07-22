@@ -368,8 +368,6 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	ws.DefaultHub.Register <- client
 }
 
-var _ = ws.DefaultHub
-
 func spaFileServer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" && r.Method != "HEAD" {
 		http.NotFound(w, r)
