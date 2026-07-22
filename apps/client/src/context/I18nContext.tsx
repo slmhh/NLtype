@@ -363,6 +363,12 @@ export const dict: Record<UILang, Record<string, string>> = {
     "multiplayer.modeTeamBattle": "团队战",
     "multiplayer.modeMarathon": "马拉松",
     "multiplayer.modeChase": "猫鼠追逐",
+    "multiplayer.ai": "AI 对手",
+    "multiplayer.aiCount": "AI 数量",
+    "multiplayer.aiDifficulty": "AI 难度",
+    "ai.easy": "简单",
+    "ai.medium": "中等",
+    "ai.hard": "困难",
 
     // general
     "general.seconds": "秒",
@@ -726,6 +732,12 @@ export const dict: Record<UILang, Record<string, string>> = {
     "multiplayer.modeTeamBattle": "Team Battle",
     "multiplayer.modeMarathon": "Marathon",
     "multiplayer.modeChase": "Cop & Robber",
+    "multiplayer.ai": "AI Opponents",
+    "multiplayer.aiCount": "AI Count",
+    "multiplayer.aiDifficulty": "AI Difficulty",
+    "ai.easy": "Easy",
+    "ai.medium": "Medium",
+    "ai.hard": "Hard",
 
     // general
     "general.seconds": "s",

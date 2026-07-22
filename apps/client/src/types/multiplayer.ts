@@ -1,3 +1,5 @@
+export type AIDifficulty = "easy" | "medium" | "hard";
+
 export type ItemType = "speed_boost" | "slow_trap" | "shield" | "teleport";
 
 export type GameMode = "race" | "time_battle" | "accuracy" | "elimination" | "team_battle" | "marathon" | "chase";
@@ -28,6 +30,7 @@ export interface RoomSettings {
   password?: string;
   aiEnabled: boolean;
   aiCount: number;
+  aiDifficulty: AIDifficulty;
 }
 
 export interface RoomInfo {

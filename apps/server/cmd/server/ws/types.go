@@ -49,14 +49,23 @@ type PlayerInfo struct {
 	Effects    []string   `json:"effects,omitempty"` // active effect names
 }
 
+type AIDifficulty string
+
+const (
+	AIDifficultyEasy   AIDifficulty = "easy"
+	AIDifficultyMedium AIDifficulty = "medium"
+	AIDifficultyHard   AIDifficulty = "hard"
+)
+
 type RoomSettings struct {
-	Mode       GameMode `json:"mode"`
-	TextSource string   `json:"textSource"` // "words", "quote", "code"
-	Duration   int      `json:"duration"`   // seconds, for timed modes
-	MaxPlayers int      `json:"maxPlayers"`
-	Password   string   `json:"password,omitempty"`
-	AIEnabled  bool     `json:"aiEnabled"`
-	AICount    int      `json:"aiCount"`
+	Mode          GameMode      `json:"mode"`
+	TextSource    string        `json:"textSource"` // "words", "quote", "code"
+	Duration      int           `json:"duration"`   // seconds, for timed modes
+	MaxPlayers    int           `json:"maxPlayers"`
+	Password      string        `json:"password,omitempty"`
+	AIEnabled     bool          `json:"aiEnabled"`
+	AICount       int           `json:"aiCount"`
+	AIDifficulty  AIDifficulty  `json:"aiDifficulty"`
 }
 
 type RoomInfo struct {

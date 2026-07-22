@@ -782,6 +782,29 @@ func (r *Room) doChaseTick() bool {
 
 // --- AI Player simulation ---
 
+type aiDifficultyConfig struct {
+	baseWPM     float64
+	wpmVariance float64
+	errorRate   [2]float64 // min, max
+	reactionMin int        // ms
+	reactionMax int        // ms
+	burstMin    int
+	burstMax    int
+}
+
+var aiDifficultyConfigs = map[AIDifficulty]aiDifficultyConfig{
+	AIDifficultyEasy:   {baseWPM: 25, wpmVariance: 0.3, errorRate: [2]float64{0.15, 0.25}, reactionMin: 800, reactionMax: 2500, burstMin: 1, burstMax: 2},
+	AIDifficultyMedium: {baseWPM: 50, wpmVariance: 0.2, errorRate: [2]float64{0.08, 0.15}, reactionMin: 500, reactionMax: 1500, burstMin: 2, burstMax: 4},
+	AIDifficultyHard:   {baseWPM: 85, wpmVariance: 0.15, errorRate: [2]float64{0.03, 0.08}, reactionMin: 200, reactionMax: 800, burstMin: 3, burstMax: 6},
+}
+
+func getAIConfig(diff AIDifficulty) aiDifficultyConfig {
+	if cfg, ok := aiDifficultyConfigs[diff]; ok {
+		return cfg
+	}
+	return aiDifficultyConfigs[AIDifficultyMedium] // default
+}
+
 func (r *Room) startAIPlayers() {
 	if !r.Settings.AIEnabled || r.Settings.AICount <= 0 {
 		return
@@ -792,6 +815,11 @@ func (r *Room) startAIPlayers() {
 	aiCount := r.Settings.AICount
 	textLen := len(r.Text)
 	mode := r.Settings.Mode
+	diff := r.Settings.AIDifficulty
+	if diff == "" {
+		diff = AIDifficultyMedium
+	}
+	cfg := getAIConfig(diff)
 	r.mu.Unlock()
 
 	for i := 0; i < aiCount; i++ {
@@ -804,7 +832,6 @@ func (r *Room) startAIPlayers() {
 		}
 
 		r.mu.Lock()
-		// Assign team/role like a real player
 		team := ""
 		role := ""
 		if mode == ModeTeamBattle {
@@ -828,32 +855,22 @@ func (r *Room) startAIPlayers() {
 		r.PlayerIdx = append(r.PlayerIdx, aiID)
 		r.mu.Unlock()
 
-		// Update lobby so clients see AI players
 		r.Broadcast(MsgRoomUpdate, r.GetRoomInfo())
 
-		// Target WPM scales with AI count: more bots = harder
-		targetWPM := 30 + float64(aiCount)*12
-		if targetWPM > 130 {
-			targetWPM = 130
-		}
-		targetWPM += float64(i) * 5 // later bots are slightly faster
+		// Each bot gets slightly different WPM around the base
+		botWPM := cfg.baseWPM + float64(i)*5
+		charDelay := time.Duration(float64(time.Minute) / (botWPM * 5))
 
-		// Per-character delay based on target WPM
-		charDelay := time.Duration(float64(time.Minute) / (targetWPM * 5))
-
-		go r.runAIPlayer(aiID, textLen, charDelay, targetWPM)
+		go r.runAIPlayer(aiID, textLen, charDelay, cfg)
 	}
 }
 
-func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, targetWPM float64) {
-	// Reaction delay: 0.5-2s
+func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, cfg aiDifficultyConfig) {
 	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	reaction := time.Duration(500+rng.IntN(1500)) * time.Millisecond
+	reaction := time.Duration(cfg.reactionMin+rng.IntN(cfg.reactionMax-cfg.reactionMin+1)) * time.Millisecond
 	time.Sleep(reaction)
 
 	pos := 0
-	errorRate := 0.08 + rng.Float64()*0.04 // 8-12% error rate
-	delayJitter := 0.7                      // ±30% jitter
 
 	for {
 		r.mu.RLock()
@@ -867,18 +884,16 @@ func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, targe
 			break
 		}
 
-		// Simulate a burst of 1-5 chars
-		burst := 1 + rng.IntN(4)
+		burst := cfg.burstMin + rng.IntN(cfg.burstMax-cfg.burstMin+1)
 		step := 0
 		for j := 0; j < burst && pos < textLen; j++ {
 			pos++
 			step++
 		}
 
-		// Simulate errors: backspace the last char with some probability
+		actualErrorRate := cfg.errorRate[0] + rng.Float64()*(cfg.errorRate[1]-cfg.errorRate[0])
 		hadError := false
-		if rng.Float64() < errorRate && pos > 0 && pos < textLen {
-			// "Backspace" - undo one char
+		if rng.Float64() < actualErrorRate && pos > 0 && pos < textLen {
 			pos--
 			time.Sleep(time.Duration(100+rng.IntN(300)) * time.Millisecond)
 			hadError = true
@@ -886,11 +901,10 @@ func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, targe
 
 		accuracy := 100.0
 		if hadError {
-			accuracy = 90.0 + rng.Float64()*8.0 // ~92-98% with error
+			accuracy = 90.0 + rng.Float64()*8.0
 		}
 
-		elapsed := time.Since(r.StartTime).Milliseconds()
-		wpm := targetWPM * (0.8 + rng.Float64()*0.4) // vary ±20%
+		wpm := cfg.baseWPM * (1.0 - cfg.wpmVariance + rng.Float64()*2*cfg.wpmVariance)
 
 		r.UpdateProgress(aiID, &GameProgressPayload{
 			Position: pos,
@@ -903,10 +917,8 @@ func (r *Room) runAIPlayer(aiID int, textLen int, baseDelay time.Duration, targe
 			return
 		}
 
-		// Delay between bursts with jitter
-		jitter := time.Duration(float64(baseDelay) * delayJitter * float64(step))
+		jitter := time.Duration(float64(baseDelay) * 0.7 * float64(step))
 		variance := time.Duration(float64(jitter) * (0.7 + rng.Float64()*0.6))
-		_ = elapsed // used via WPM calc
 		time.Sleep(variance)
 	}
 }

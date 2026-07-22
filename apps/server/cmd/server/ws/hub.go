@@ -107,6 +107,9 @@ func (h *Hub) handleCreateRoom(c *Client, payload interface{}) {
 	if settings.Duration <= 0 {
 		settings.Duration = 60
 	}
+	if settings.AIDifficulty == "" {
+		settings.AIDifficulty = AIDifficultyMedium
+	}
 
 	room := NewRoom(settings, &UserInfo{ID: c.UserID, Username: c.Username, Role: c.Role})
 	h.mu.Lock()

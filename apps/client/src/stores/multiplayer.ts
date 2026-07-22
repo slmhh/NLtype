@@ -164,6 +164,7 @@ export function useMultiplayer() {
       password: settings.password || "",
       aiEnabled: settings.aiEnabled || false,
       aiCount: settings.aiCount || 0,
+      aiDifficulty: settings.aiDifficulty || "medium",
     });
   }, []);
 

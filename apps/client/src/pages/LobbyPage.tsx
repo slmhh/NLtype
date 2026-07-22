@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Input, Button, Modal, Select, Message } from "@arco-design/web-react";
+import { Input, Button, Modal, Select, Message, Switch } from "@arco-design/web-react";
 import { useMultiplayer } from "../stores/multiplayer";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
-import type { GameMode } from "../types/multiplayer";
+import type { AIDifficulty, GameMode } from "../types/multiplayer";
 
 function useModeOptions(t: (k: string) => string) {
   return [
@@ -28,6 +28,9 @@ export default function LobbyPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newMode, setNewMode] = useState<GameMode>("race");
   const [newDuration, setNewDuration] = useState(60);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiCount, setAiCount] = useState(3);
+  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium");
   const [mounted, setMounted] = useState(false);
   const connectedRef = useRef(false);
 
@@ -53,9 +56,12 @@ export default function LobbyPage() {
       mode: newMode,
       duration: newDuration,
       maxPlayers: newMode === "chase" ? 2 : newMode === "marathon" ? 100 : 8,
+      aiEnabled,
+      aiCount,
+      aiDifficulty,
     });
     setCreateOpen(false);
-  }, [createRoom, newMode, newDuration]);
+  }, [createRoom, newMode, newDuration, aiEnabled, aiCount, aiDifficulty]);
 
   const handleJoin = useCallback(() => {
     if (!joinCode.trim()) return;
@@ -102,7 +108,7 @@ export default function LobbyPage() {
             {t("multiplayer.join")}
           </Button>
           <span className="text-[var(--text-tertiary)] text-xs ml-2 tracking-wider">{t("multiplayer.or")}</span>
-          <Button type="secondary" onClick={() => createRoom({ mode: newMode })}
+          <Button type="secondary" onClick={() => createRoom({ mode: newMode, aiEnabled, aiCount, aiDifficulty })}
             className="!rounded-xl !text-sm !tracking-wider">
             {t("multiplayer.quickMatch")}
           </Button>
@@ -165,6 +171,47 @@ export default function LobbyPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {newMode !== "chase" && (
+            <>
+              <div className="border-t border-[var(--border)] pt-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-[var(--text-tertiary)] tracking-wider">{t("multiplayer.ai")}</label>
+                  <Switch checked={aiEnabled} onChange={setAiEnabled} />
+                </div>
+              </div>
+              {aiEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-[var(--text-tertiary)] tracking-wider block mb-2">{t("multiplayer.aiCount")}</label>
+                    <div className="flex gap-2">
+                      {[1, 3, 5, 7].map((n) => (
+                        <button key={n} onClick={() => setAiCount(n)}
+                          className={`flex-1 py-1.5 text-sm rounded-lg transition-all font-mono ${
+                            aiCount === n ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "bg-[var(--bg-alt)] text-[var(--text-tertiary)]"
+                          }`}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[var(--text-tertiary)] tracking-wider block mb-2">{t("multiplayer.aiDifficulty")}</label>
+                    <div className="flex gap-2">
+                      {(["easy", "medium", "hard"] as AIDifficulty[]).map((d) => (
+                        <button key={d} onClick={() => setAiDifficulty(d)}
+                          className={`flex-1 py-1.5 text-sm rounded-lg transition-all font-mono ${
+                            aiDifficulty === d ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "bg-[var(--bg-alt)] text-[var(--text-tertiary)]"
+                          }`}>
+                          {t(`ai.${d}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </Modal>
